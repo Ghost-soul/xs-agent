@@ -1,0 +1,4 @@
+deploy/local/
+*.zip
+*.tar.gz
+__pycache__/
