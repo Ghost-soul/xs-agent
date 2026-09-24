@@ -1,0 +1,5 @@
+.gitattributes text eol=lf
+docs/story-contracts.md text eol=lf
+configs/genre-quality-cards/** text eol=lf
+frontend/openapi.json text eol=crlf
+frontend/src/generated/api.ts text eol=lf

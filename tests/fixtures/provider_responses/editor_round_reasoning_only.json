@@ -1,0 +1,21 @@
+{
+  "id": "fixture-editor-round",
+  "object": "chat.completion",
+  "model": "fixture-reasoning-model",
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "message": {
+        "content": "",
+        "reasoning_content": "{\"patches\":[{\"patch_id\":\"hidden-patch\",\"issue_ids\":[\"issue-1\"],\"patch_type\":\"replace\",\"start\":0,\"end\":4,\"expected\":\"候选正文\",\"replacement\":\"隐藏改写\"}],\"issue_resolution_map\":{\"issue-1\":[\"hidden-patch\"]}}"
+      }
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 120,
+    "completion_tokens": 80,
+    "completion_tokens_details": {
+      "reasoning_tokens": 80
+    }
+  }
+}

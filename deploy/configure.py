@@ -42,7 +42,7 @@ def create_configuration(
             (secret_root / name).chmod(0o444)
     values = {
         "NOVEL_WRITER_STACK": stack,
-        "NOVEL_WRITER_IMAGE_TAG": "2026.09.24",
+        "NOVEL_WRITER_IMAGE": "ghcr.io/ghost-soul/xs-agent:latest",
         "NOVEL_WRITER_PUBLIC_ORIGIN": origin,
         "NOVEL_WRITER_BIND": bind,
         "NOVEL_WRITER_HTTP_PORT": str(port),

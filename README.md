@@ -1,68 +1,75 @@
-# Novel Writer Docker 部署
+# Novel Writer / xs-agent
 
-适用于 Linux x86_64 / amd64 的全新实例部署。应用镜像包含前后端，PostgreSQL 使用独立容器；由根目录的 [docker-compose.yml](docker-compose.yml) 统一管理。
+面向个人使用的小说创作与管理工作台。React 前端、FastAPI 后端、PostgreSQL 数据库；支持作品管理、题材与叙事卡、有限阶段创作、事实接力、失败检查点恢复、阅读、导出和备份。
 
-- [下载离线部署包（约 236 MB）](https://github.com/Ghost-soul/xs-agent/releases/download/docker-2026.09.25/novel-writer-docker-20260925.zip)
-- [完整部署说明](deploy/README.md)（其中的构建命令适用于完整解压后的部署包）
-- [发布页与附件](https://github.com/Ghost-soul/xs-agent/releases/tag/docker-2026.09.25)
+本仓库包含当前应用源码、前后端测试、活动卡库、数据库迁移、Docker 构建与部署配置。公开源码快照不包含开发机器的 API Key、小说、个人设置、运行报告、协作记忆或原仓库 Git 历史。首次部署为空白实例，供应商和 API Key 在网页中重新配置。
 
-部署包不包含开发机器的 API Key、个人配置、小说数据库、历史响应、费用记录、参考语料、日志、备份或 Git 历史。首次启动是空白实例，模型供应商与 API Key 需重新配置。
+## Docker 快速部署
 
-## 首次部署
-
-服务器需安装 Docker Engine、Docker Compose v2、Python 3、Git、curl 和 unzip。以下命令在 Linux 服务器执行。
+适用 Linux x86_64 / amd64。服务器需要 Docker Engine、Compose v2、Python 3 和 Git。
 
 ```sh
 git clone https://github.com/Ghost-soul/xs-agent.git
 cd xs-agent
-
-curl -fL --retry 3 -o novel-writer-docker-20260925.zip https://github.com/Ghost-soul/xs-agent/releases/download/docker-2026.09.25/novel-writer-docker-20260925.zip
-echo '8dc6a42f9211ff48133068c5d943ee70aa470d7ac00582688415ca9efab7790d  novel-writer-docker-20260925.zip' | sha256sum --check
-unzip novel-writer-docker-20260925.zip novel-writer-images.tar.gz
-docker load -i novel-writer-images.tar.gz
-
 python3 deploy/configure.py
+docker compose --env-file deploy/local/deployment.env pull
 docker compose --env-file deploy/local/deployment.env up -d database
 docker compose --env-file deploy/local/deployment.env run --rm migrate
 docker compose --env-file deploy/local/deployment.env up -d app
 docker compose --env-file deploy/local/deployment.env ps
 ```
 
-校验失败时停止操作，重新下载部署包。应用镜像从 Release 导入，Compose 不会尝试从镜像仓库拉取应用；未导入镜像时会明确报错。数据库迁移是显式维护步骤，不会在每次启动时自动执行。
+应用镜像：`ghcr.io/ghost-soul/xs-agent:latest`。每次源码构建另发布 `sha-<完整提交 SHA>` 标签；需要固定版本时，将 `deploy/local/deployment.env` 中的 `NOVEL_WRITER_IMAGE` 改为该标签或 `ghcr.io/ghost-soul/xs-agent@sha256:<镜像摘要>`。
 
-`configure.py` 仅首次运行，用于随机生成服务器自己的密码；已有配置时会拒绝覆盖。配置目录 `deploy/local/` 已被 Git 忽略，不要上传或分享。
+`configure.py` 只用于首次初始化，在本机随机生成数据库和网页登录密码，已有配置时拒绝覆盖。`deploy/local/` 已被 Git 忽略，不能上传或分享。数据库迁移需显式执行，普通启动不会自动迁移。
 
-## 登录与远程访问
-
-默认账号为 `author`，在服务器查看新生成的网页登录密码：
+默认网页登录账号 `author`，服务器上查看密码：
 
 ```sh
 cat deploy/local/secrets/web_password
 ```
 
-服务默认仅监听服务器的 `127.0.0.1:8080`。在自己的电脑建立 SSH 隧道：
+应用默认仅监听服务器 `127.0.0.1:8080`。在自己的电脑建立 SSH 隧道：
 
 ```sh
 ssh -N -L 8080:127.0.0.1:8080 <用户>@<服务器>
 ```
 
-随后在电脑浏览器打开 `http://localhost:8080`，使用上述账号和密码登录。模型 API Key 登录后在网页配置。
+在电脑浏览器打开 `http://localhost:8080` 并登录。需要域名访问时，首次配置使用 `python3 deploy/configure.py --origin https://你的域名`，由同机 HTTPS 反向代理转发到 `127.0.0.1:8080`，保留 Host 和 Origin。已有实例修改 `deployment.env` 的网站来源，不重新生成密码。
 
-需要域名访问时，首次初始化使用 `python3 deploy/configure.py --origin https://你的域名`，由同机 HTTPS 反向代理转发至 `127.0.0.1:8080`，保留 Host 和 Origin。已经初始化时修改 `deploy/local/deployment.env` 中的网站来源，不重新生成密码。
-
-## 停止、再次启动与数据保留
+## 更新与数据
 
 ```sh
 # 查看应用日志
 docker compose --env-file deploy/local/deployment.env logs --tail=100 app
 
-# 确认创作暂停、没有在途调用后停止
-docker compose --env-file deploy/local/deployment.env stop
-
-# 再次启动；已有实例不需要重新生成配置或重复初始化
-docker compose --env-file deploy/local/deployment.env up -d
+# 确认创作暂停且没有在途调用后更新
+docker compose --env-file deploy/local/deployment.env stop app
+git pull --ff-only
+docker compose --env-file deploy/local/deployment.env pull
+docker compose --env-file deploy/local/deployment.env run --rm migrate
+docker compose --env-file deploy/local/deployment.env up -d app
 ```
 
-应用数据、数据库和日志分别使用持久数据卷，普通停止或重建容器会保留。不要使用 `docker compose down -v`，该命令会删除数据卷。保留同一份 `deploy/local/` 配置与 Compose 项目名，以继续使用原数据。
+应用数据、数据库和日志各自使用持久数据卷。保留同一份配置和 Compose 项目名；停止或重建容器不会清空数据。`docker compose down -v` 会删除数据卷，不用于正常停止或更新。正式数据迁移和备份还原需另行进行，不会由镜像部署自动执行。
 
-升级时先暂停创作并停止应用，再载入新镜像，必要时显式执行迁移，最后启动应用。根目录 Compose 不包含源码构建配置；需要修改程序或卡文时，解压完整部署包后参考其中的部署说明重新构建。
+## 从源码构建
+
+```sh
+python3 scripts/package_docker.py --output dist/docker-source
+docker build -t novel-writer:local dist/docker-source/source
+NOVEL_WRITER_IMAGE=novel-writer:local docker compose --env-file deploy/local/deployment.env run --rm migrate
+NOVEL_WRITER_IMAGE=novel-writer:local docker compose --env-file deploy/local/deployment.env up -d app
+```
+
+构建输入使用程序白名单和 `.dockerignore` 双重过滤。镜像中包含前后端和活动卡库；不包含数据库、API Key 或服务器运行资料。CI 使用 GitHub Actions 临时令牌构建并推送至 GHCR，不需要在源码或仓库 Secret 中保存个人访问令牌。
+
+## 离线部署与开发
+
+- [Docker 部署细节与离线镜像](deploy/README.md)
+- [开发环境与测试](docs/DEVELOPMENT.md)
+- [架构](docs/ARCHITECTURE.md)
+- [安全说明](SECURITY.md)
+- [初始离线部署包](https://github.com/Ghost-soul/xs-agent/releases/tag/docker-2026.09.25)
+
+根目录 `docker-compose.yml` 用于完整服务器部署；`compose.dev.yaml` 仅用于开发数据库，需要显式指定。公开仓库未携带本机维护记录，不能用本次源码发布代替文学效果或正式服务器容量验收。

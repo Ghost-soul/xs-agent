@@ -1,0 +1,3 @@
+# Runtime application entry points.
+novel_writer.__main__
+novel_writer.main

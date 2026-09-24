@@ -1,0 +1,60 @@
+/* Shared detail styles used by the current approval and calibration views. */
+
+select {
+  width: 100%;
+  height: 38px;
+  padding: 6px 9px;
+  border: 1px solid #c9d1d3;
+  border-radius: 4px;
+  color: #252c2e;
+  background: #fff;
+}
+
+.authorization-check {
+  display: flex !important;
+  align-items: center;
+  gap: 7px !important;
+  white-space: nowrap;
+}
+
+.authorization-check input { width: 16px; height: 16px; margin: 0; }
+
+.approved-scene-plans { display: grid; gap: 12px; }
+.approved-scene-plans section { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 10px; padding: 12px 0; border-top: 1px solid #e1e5e6; }
+.approved-scene-plans section > span { color: #849094; font: 11px Consolas, monospace; }
+.approved-scene-plans strong { font-size: 13px; }
+.approved-scene-plans p { margin: 5px 0; color: #3e484b; font-size: 13px; line-height: 1.6; }
+.approved-scene-plans small { color: #6b7679; line-height: 1.55; }
+
+.handoff-note {
+  padding: 12px 14px;
+  border-left: 3px solid #3f8a63;
+  color: #2e6549;
+  background: #f1f8f4;
+}
+
+.handoff-note p { margin: 5px 0 0; line-height: 1.55; }
+
+@media (max-width: 620px) {
+  .authorization-check { white-space: normal; }
+}
+.formal-title-editor {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.65rem;
+  padding: 0.75rem;
+  border: 1px solid #d1d8da;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.formal-title-editor label {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.formal-title-editor input {
+  min-width: 0;
+}

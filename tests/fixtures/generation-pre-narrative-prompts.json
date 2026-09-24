@@ -1,0 +1,680 @@
+{
+  "spec": {
+    "workflow": "novel-run-v1",
+    "context_policy": "full-v1",
+    "automation_policy": "stage-auto-v1",
+    "feedback_policy": "logic-v1",
+    "writing_policy": "guided-v1",
+    "card_selection_policy": "legacy-v1",
+    "narrative_card_ids": [],
+    "enable_checker": true,
+    "enable_reader": false,
+    "roles": {},
+    "enable_editor": false,
+    "generate_title": false,
+    "base_version_id": "9b50c0df-3c69-44af-86a8-15615965008a",
+    "focus_card_id": "world",
+    "supporting_card_id": null,
+    "direction": "爱情影响选择",
+    "author_boundaries": "",
+    "character_selection": "chief-auto-v1",
+    "character_ids": [],
+    "viewpoint": "",
+    "relationship_scope": "genre-led",
+    "relationship_character_ids": [],
+    "profile_id": "local",
+    "chief_model": "test",
+    "writer_model": "test",
+    "chief_tokenizer_id": null,
+    "writer_tokenizer_id": null,
+    "stage_mode": "longform-v1",
+    "chapter_count": 1,
+    "unit_limit": 2,
+    "milestone_unit": null,
+    "previous_stage_id": null,
+    "target_characters": 4000,
+    "input_limit": 100000,
+    "chief_output_limit": 6000,
+    "auxiliary_output_limit": null,
+    "writer_output_limit": 12000,
+    "max_cost_cny": "1",
+    "timeout_seconds": 600,
+    "pause_after_plan": false
+  },
+  "snapshot": {
+    "cast_selection": {
+      "policy": "chief-auto-v1",
+      "characters": [
+        {
+          "id": "83fb8663-cb8b-445f-bcc9-b0a866bfd306",
+          "name": "林青",
+          "description": "成年女性，守卫",
+          "personality": "",
+          "speech_style": "林青完整声音档案",
+          "decision_style": "",
+          "forbidden_behaviors": [],
+          "current_state": "",
+          "development_history": [],
+          "library_status": "active",
+          "tier": "A",
+          "mind_state": {
+            "beliefs": [],
+            "desires": [],
+            "fears": [],
+            "current_emotions": [],
+            "internal_conflicts": [],
+            "coping_strategy": ""
+          },
+          "aliases": [],
+          "portrayal_profile": {
+            "independent_goal": "",
+            "unique_competence": "",
+            "value_boundary": "",
+            "attention_bias": [],
+            "conflict_method": "",
+            "stress_response": "",
+            "voice_examples": [],
+            "anti_examples": []
+          },
+          "location_id": null
+        },
+        {
+          "id": "033e701a-4603-4232-bcab-91f247fdc2dd",
+          "name": "江月",
+          "description": "成年女性，船主",
+          "personality": "",
+          "speech_style": "江月完整声音档案",
+          "decision_style": "",
+          "forbidden_behaviors": [],
+          "current_state": "",
+          "development_history": [],
+          "library_status": "active",
+          "tier": "A",
+          "mind_state": {
+            "beliefs": [],
+            "desires": [],
+            "fears": [],
+            "current_emotions": [],
+            "internal_conflicts": [],
+            "coping_strategy": ""
+          },
+          "aliases": [],
+          "portrayal_profile": {
+            "independent_goal": "",
+            "unique_competence": "",
+            "value_boundary": "",
+            "attention_bias": [],
+            "conflict_method": "",
+            "stress_response": "",
+            "voice_examples": [],
+            "anti_examples": []
+          },
+          "location_id": null
+        },
+        {
+          "id": "46ae5be5-bab8-44fc-96bb-5748e937d67c",
+          "name": "王掌柜",
+          "description": "旧手续经手人",
+          "personality": "",
+          "speech_style": "不应进入Writer的档案",
+          "decision_style": "",
+          "forbidden_behaviors": [],
+          "current_state": "",
+          "development_history": [],
+          "library_status": "active",
+          "tier": "A",
+          "mind_state": {
+            "beliefs": [],
+            "desires": [],
+            "fears": [],
+            "current_emotions": [],
+            "internal_conflicts": [],
+            "coping_strategy": ""
+          },
+          "aliases": [],
+          "portrayal_profile": {
+            "independent_goal": "",
+            "unique_competence": "",
+            "value_boundary": "",
+            "attention_bias": [],
+            "conflict_method": "",
+            "stress_response": "",
+            "voice_examples": [],
+            "anti_examples": []
+          },
+          "location_id": null
+        }
+      ],
+      "candidates": [
+        {
+          "id": "83fb8663-cb8b-445f-bcc9-b0a866bfd306",
+          "name": "林青",
+          "reasons": [
+            "正式人物候选"
+          ]
+        },
+        {
+          "id": "033e701a-4603-4232-bcab-91f247fdc2dd",
+          "name": "江月",
+          "reasons": [
+            "正式人物候选"
+          ]
+        },
+        {
+          "id": "46ae5be5-bab8-44fc-96bb-5748e937d67c",
+          "name": "王掌柜",
+          "reasons": [
+            "正式人物候选"
+          ]
+        }
+      ],
+      "required_ids": [],
+      "omitted_ids": [],
+      "source_sha256": "696d3c51f406bb94fa01e977d0945a856db010b08c9e000470aa3cbf7e4251f3",
+      "recall_complete": true,
+      "selection_is_final_cast": false
+    },
+    "cards": [
+      {
+        "id": "world",
+        "name": "世界",
+        "text": "世界原文",
+        "sha256": "w"
+      },
+      {
+        "id": "narrative",
+        "name": "身份秘密",
+        "text": "身份调查改变继承选择",
+        "sha256": "n"
+      }
+    ],
+    "context": {
+      "characters": [
+        {
+          "id": "83fb8663-cb8b-445f-bcc9-b0a866bfd306",
+          "name": "林青",
+          "description": "成年女性，守卫",
+          "personality": "",
+          "speech_style": "林青完整声音档案",
+          "decision_style": "",
+          "forbidden_behaviors": [],
+          "current_state": "",
+          "development_history": [],
+          "library_status": "active",
+          "tier": "A",
+          "mind_state": {
+            "beliefs": [],
+            "desires": [],
+            "fears": [],
+            "current_emotions": [],
+            "internal_conflicts": [],
+            "coping_strategy": ""
+          },
+          "aliases": [],
+          "portrayal_profile": {
+            "independent_goal": "",
+            "unique_competence": "",
+            "value_boundary": "",
+            "attention_bias": [],
+            "conflict_method": "",
+            "stress_response": "",
+            "voice_examples": [],
+            "anti_examples": []
+          },
+          "location_id": null
+        },
+        {
+          "id": "033e701a-4603-4232-bcab-91f247fdc2dd",
+          "name": "江月",
+          "description": "成年女性，船主",
+          "personality": "",
+          "speech_style": "江月完整声音档案",
+          "decision_style": "",
+          "forbidden_behaviors": [],
+          "current_state": "",
+          "development_history": [],
+          "library_status": "active",
+          "tier": "A",
+          "mind_state": {
+            "beliefs": [],
+            "desires": [],
+            "fears": [],
+            "current_emotions": [],
+            "internal_conflicts": [],
+            "coping_strategy": ""
+          },
+          "aliases": [],
+          "portrayal_profile": {
+            "independent_goal": "",
+            "unique_competence": "",
+            "value_boundary": "",
+            "attention_bias": [],
+            "conflict_method": "",
+            "stress_response": "",
+            "voice_examples": [],
+            "anti_examples": []
+          },
+          "location_id": null
+        },
+        {
+          "id": "46ae5be5-bab8-44fc-96bb-5748e937d67c",
+          "name": "王掌柜",
+          "description": "旧手续经手人",
+          "personality": "",
+          "speech_style": "不应进入Writer的档案",
+          "decision_style": "",
+          "forbidden_behaviors": [],
+          "current_state": "",
+          "development_history": [],
+          "library_status": "active",
+          "tier": "A",
+          "mind_state": {
+            "beliefs": [],
+            "desires": [],
+            "fears": [],
+            "current_emotions": [],
+            "internal_conflicts": [],
+            "coping_strategy": ""
+          },
+          "aliases": [],
+          "portrayal_profile": {
+            "independent_goal": "",
+            "unique_competence": "",
+            "value_boundary": "",
+            "attention_bias": [],
+            "conflict_method": "",
+            "stress_response": "",
+            "voice_examples": [],
+            "anti_examples": []
+          },
+          "location_id": null
+        }
+      ],
+      "recent_chapters": [],
+      "beliefs": [],
+      "relationships": [
+        {
+          "source_character_id": "83fb8663-cb8b-445f-bcc9-b0a866bfd306",
+          "target_character_id": "033e701a-4603-4232-bcab-91f247fdc2dd",
+          "relation_type": "约定再见",
+          "description": "已经留下记号，尚未确认爱情"
+        }
+      ],
+      "narrative_position": {},
+      "reference_style": {
+        "positive_contract": "克制叙事"
+      }
+    }
+  },
+  "plan": {
+    "chapter_goal": "开始明确在意",
+    "bridge": "结束手续后相见",
+    "scenes": [
+      {
+        "event": "请求同行",
+        "character_ids": [
+          "83fb8663-cb8b-445f-bcc9-b0a866bfd306",
+          "033e701a-4603-4232-bcab-91f247fdc2dd"
+        ],
+        "choice_and_response": "提出私人邀请，对方决定答应",
+        "consequence": "改道同行"
+      },
+      {
+        "event": "一起抵达",
+        "character_ids": [
+          "83fb8663-cb8b-445f-bcc9-b0a866bfd306",
+          "033e701a-4603-4232-bcab-91f247fdc2dd"
+        ],
+        "choice_and_response": "她主动留下",
+        "consequence": "约定下次见面"
+      }
+    ],
+    "major_turn": "为她改变路线",
+    "world_context": "",
+    "questions": [],
+    "question_scopes": {},
+    "future_proposal": "",
+    "story_questions": [],
+    "author_question_reasons": {}
+  },
+  "body": "她查到旧档案，决定推迟继承。",
+  "author_note": "保留人物自主选择",
+  "cases": [
+    {
+      "changes": {
+        "stage_mode": "single-unit-v1",
+        "unit_limit": 1,
+        "context_policy": "full-v1",
+        "card_selection_policy": "legacy-v1",
+        "narrative_card_ids": []
+      },
+      "contract": "7d69356f85628819e8144c22c490829fdd6ec9c8d1da4a8c16c528204ebbcf26",
+      "amendment_contract": "7d69356f85628819e8144c22c490829fdd6ec9c8d1da4a8c16c528204ebbcf26",
+      "render_sha256": {
+        "plan": "f7aa237530aa1ced111e7aa7a54766b5dac525bb2a0d0e45a2131176258feee9",
+        "chief:1": "4dfa547805afb74efa59dc173391a7c2a4b00f8e826a62765d62effc682a2a52",
+        "write": "63cf5b5242ae5c14ca868b327ef3670bbc5bad32011912a2833bf6640befada9",
+        "rewrite": "46c18a6037a6c1f0d2aee437d31afa38c8920177033d3357898a3d67c2ba4581",
+        "memory": "a55f958d39a4a58c4f6b3873a5c3f685a4d0b998b8604d551de4dfda722d71c8",
+        "memory:1": "a55f958d39a4a58c4f6b3873a5c3f685a4d0b998b8604d551de4dfda722d71c8",
+        "memory_amend": "a55f958d39a4a58c4f6b3873a5c3f685a4d0b998b8604d551de4dfda722d71c8",
+        "checker": "1de771f1837c8110cf8ec0c4cc7b20e6d27955503bddef64beaa1c3081a34845",
+        "checker_amend": "1de771f1837c8110cf8ec0c4cc7b20e6d27955503bddef64beaa1c3081a34845",
+        "reader": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "reader_amend": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "editor": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "amend": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "title": "f86edacd1a2ed87b8912c51403afa9c716d8a1d4a94c7e4ec812455c85b79d13"
+      }
+    },
+    {
+      "changes": {
+        "stage_mode": "single-unit-v1",
+        "unit_limit": 1,
+        "context_policy": "full-v1",
+        "card_selection_policy": "separate-v1",
+        "narrative_card_ids": [
+          "narrative"
+        ]
+      },
+      "contract": "70077de7e68cdcec5b78c23c1ed8a34d6adc40e6e4bb2d80a9b4e5cc2bce891b",
+      "amendment_contract": "70077de7e68cdcec5b78c23c1ed8a34d6adc40e6e4bb2d80a9b4e5cc2bce891b",
+      "render_sha256": {
+        "plan": "b7722a3b6d22f6527933f1b937c8162947d859b014a459226e28c971f655ef67",
+        "chief:1": "d243bcfdbb596ea037e8ca4bb3c5ea54e98b8107b77169a2e221056ff9e9e30f",
+        "write": "63cf5b5242ae5c14ca868b327ef3670bbc5bad32011912a2833bf6640befada9",
+        "rewrite": "46c18a6037a6c1f0d2aee437d31afa38c8920177033d3357898a3d67c2ba4581",
+        "memory": "a55f958d39a4a58c4f6b3873a5c3f685a4d0b998b8604d551de4dfda722d71c8",
+        "memory:1": "a55f958d39a4a58c4f6b3873a5c3f685a4d0b998b8604d551de4dfda722d71c8",
+        "memory_amend": "a55f958d39a4a58c4f6b3873a5c3f685a4d0b998b8604d551de4dfda722d71c8",
+        "checker": "1de771f1837c8110cf8ec0c4cc7b20e6d27955503bddef64beaa1c3081a34845",
+        "checker_amend": "1de771f1837c8110cf8ec0c4cc7b20e6d27955503bddef64beaa1c3081a34845",
+        "reader": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "reader_amend": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "editor": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "amend": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "title": "f86edacd1a2ed87b8912c51403afa9c716d8a1d4a94c7e4ec812455c85b79d13"
+      }
+    },
+    {
+      "changes": {
+        "stage_mode": "single-unit-v1",
+        "unit_limit": 1,
+        "context_policy": "bounded-v1",
+        "card_selection_policy": "legacy-v1",
+        "narrative_card_ids": []
+      },
+      "contract": "71e710024409c3d7e71aff065344255e378e893c24895ad26612382de9a79228",
+      "amendment_contract": "71e710024409c3d7e71aff065344255e378e893c24895ad26612382de9a79228",
+      "render_sha256": {
+        "plan": "f7aa237530aa1ced111e7aa7a54766b5dac525bb2a0d0e45a2131176258feee9",
+        "chief:1": "4dfa547805afb74efa59dc173391a7c2a4b00f8e826a62765d62effc682a2a52",
+        "write": "63cf5b5242ae5c14ca868b327ef3670bbc5bad32011912a2833bf6640befada9",
+        "rewrite": "46c18a6037a6c1f0d2aee437d31afa38c8920177033d3357898a3d67c2ba4581",
+        "memory": "a55f958d39a4a58c4f6b3873a5c3f685a4d0b998b8604d551de4dfda722d71c8",
+        "memory:1": "a55f958d39a4a58c4f6b3873a5c3f685a4d0b998b8604d551de4dfda722d71c8",
+        "memory_amend": "a55f958d39a4a58c4f6b3873a5c3f685a4d0b998b8604d551de4dfda722d71c8",
+        "checker": "1de771f1837c8110cf8ec0c4cc7b20e6d27955503bddef64beaa1c3081a34845",
+        "checker_amend": "1de771f1837c8110cf8ec0c4cc7b20e6d27955503bddef64beaa1c3081a34845",
+        "reader": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "reader_amend": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "editor": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "amend": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "title": "f86edacd1a2ed87b8912c51403afa9c716d8a1d4a94c7e4ec812455c85b79d13"
+      }
+    },
+    {
+      "changes": {
+        "stage_mode": "single-unit-v1",
+        "unit_limit": 1,
+        "context_policy": "bounded-v1",
+        "card_selection_policy": "separate-v1",
+        "narrative_card_ids": [
+          "narrative"
+        ]
+      },
+      "contract": "33a5b412988103101b35c406f95cc93181fc84a7d3f3c690b7ab78960dda92c7",
+      "amendment_contract": "33a5b412988103101b35c406f95cc93181fc84a7d3f3c690b7ab78960dda92c7",
+      "render_sha256": {
+        "plan": "b7722a3b6d22f6527933f1b937c8162947d859b014a459226e28c971f655ef67",
+        "chief:1": "d243bcfdbb596ea037e8ca4bb3c5ea54e98b8107b77169a2e221056ff9e9e30f",
+        "write": "63cf5b5242ae5c14ca868b327ef3670bbc5bad32011912a2833bf6640befada9",
+        "rewrite": "46c18a6037a6c1f0d2aee437d31afa38c8920177033d3357898a3d67c2ba4581",
+        "memory": "a55f958d39a4a58c4f6b3873a5c3f685a4d0b998b8604d551de4dfda722d71c8",
+        "memory:1": "a55f958d39a4a58c4f6b3873a5c3f685a4d0b998b8604d551de4dfda722d71c8",
+        "memory_amend": "a55f958d39a4a58c4f6b3873a5c3f685a4d0b998b8604d551de4dfda722d71c8",
+        "checker": "1de771f1837c8110cf8ec0c4cc7b20e6d27955503bddef64beaa1c3081a34845",
+        "checker_amend": "1de771f1837c8110cf8ec0c4cc7b20e6d27955503bddef64beaa1c3081a34845",
+        "reader": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "reader_amend": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "editor": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "amend": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "title": "f86edacd1a2ed87b8912c51403afa9c716d8a1d4a94c7e4ec812455c85b79d13"
+      }
+    },
+    {
+      "changes": {
+        "stage_mode": "single-unit-v1",
+        "unit_limit": 1,
+        "context_policy": "focused-v1",
+        "card_selection_policy": "legacy-v1",
+        "narrative_card_ids": []
+      },
+      "contract": "e67fd02674ee3ba5284f7a30cc5ee5713d490a51f52155ba1884168de9a1c301",
+      "amendment_contract": "e67fd02674ee3ba5284f7a30cc5ee5713d490a51f52155ba1884168de9a1c301",
+      "render_sha256": {
+        "plan": "1d3bc4caeaa3eeb6e796c278581b4884a6e6f0bc79818d25c447849ec225e983",
+        "chief:1": "c8340949b4df8ee3a3cf4f372557ef9f0cdd49912f5c5453606c3caa08150700",
+        "write": "ee11ff1fd113cc17a6f2044dde26c48da5d04423d0ba6bc67d88fb573a9f0789",
+        "rewrite": "e4b675c8f16c3b56e880087311f4677ad9a75dcc69f648f9244b7d0480bc7801",
+        "memory": "09a7af82838ef2f57b17466b0a5a50b29591ac9925e2a140725f02cd1f5d0450",
+        "memory:1": "09a7af82838ef2f57b17466b0a5a50b29591ac9925e2a140725f02cd1f5d0450",
+        "memory_amend": "09a7af82838ef2f57b17466b0a5a50b29591ac9925e2a140725f02cd1f5d0450",
+        "checker": "549daaaf879515ee313b9ffa84ba9f0cc6babeff47f8ab2c402480149e22fdbd",
+        "checker_amend": "549daaaf879515ee313b9ffa84ba9f0cc6babeff47f8ab2c402480149e22fdbd",
+        "reader": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "reader_amend": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "editor": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "amend": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "title": "f86edacd1a2ed87b8912c51403afa9c716d8a1d4a94c7e4ec812455c85b79d13"
+      }
+    },
+    {
+      "changes": {
+        "stage_mode": "single-unit-v1",
+        "unit_limit": 1,
+        "context_policy": "focused-v1",
+        "card_selection_policy": "separate-v1",
+        "narrative_card_ids": [
+          "narrative"
+        ]
+      },
+      "contract": "f4b8569088fa2fdfd493ec18874817848dc3195328b3de562f51408ebb79e1ac",
+      "amendment_contract": "f4b8569088fa2fdfd493ec18874817848dc3195328b3de562f51408ebb79e1ac",
+      "render_sha256": {
+        "plan": "349af28632540c372e64ce90c9b53db794b2ab4312c91d3d5265a5a51eff1732",
+        "chief:1": "3db8d3fc464fb00cfff7b7c2ba2937ebb5501c2851f6d6da2e529a10296c533b",
+        "write": "ee11ff1fd113cc17a6f2044dde26c48da5d04423d0ba6bc67d88fb573a9f0789",
+        "rewrite": "e4b675c8f16c3b56e880087311f4677ad9a75dcc69f648f9244b7d0480bc7801",
+        "memory": "09a7af82838ef2f57b17466b0a5a50b29591ac9925e2a140725f02cd1f5d0450",
+        "memory:1": "09a7af82838ef2f57b17466b0a5a50b29591ac9925e2a140725f02cd1f5d0450",
+        "memory_amend": "09a7af82838ef2f57b17466b0a5a50b29591ac9925e2a140725f02cd1f5d0450",
+        "checker": "549daaaf879515ee313b9ffa84ba9f0cc6babeff47f8ab2c402480149e22fdbd",
+        "checker_amend": "549daaaf879515ee313b9ffa84ba9f0cc6babeff47f8ab2c402480149e22fdbd",
+        "reader": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "reader_amend": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "editor": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "amend": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "title": "f86edacd1a2ed87b8912c51403afa9c716d8a1d4a94c7e4ec812455c85b79d13"
+      }
+    },
+    {
+      "changes": {
+        "stage_mode": "longform-v1",
+        "unit_limit": 2,
+        "context_policy": "full-v1",
+        "card_selection_policy": "legacy-v1",
+        "narrative_card_ids": []
+      },
+      "contract": "e39384244bc6065ad01458d4a3e3f389c439884521a958735aaac830f9379a01",
+      "amendment_contract": "e39384244bc6065ad01458d4a3e3f389c439884521a958735aaac830f9379a01",
+      "render_sha256": {
+        "plan": "e3a93ea11608905e4bf65e959a8c6e18cc28a8646d87464188d2c06676e542ea",
+        "chief:1": "6f6727ced48350e2be6758e7a8aeffe7beebecd8f4b685cd643fe055ea02beac",
+        "write:1": "2e7f39496eebcb4cff50f529de148082db54df7881cf1276a5d77d9ff06d5c82",
+        "rewrite": "90f31afe9dbfabf04ded6418637fff0ac1a9d1c233afdffba71fa757e39446de",
+        "memory": "e27581b3182425325c4bdf5594cb815b668e94b1cd54af8aa3b39ae719a29001",
+        "memory:1": "f7c80ab253632aded1c124673a08c32e2bf19a3fa6f41901ca8e9ec5810d552c",
+        "memory_amend": "e27581b3182425325c4bdf5594cb815b668e94b1cd54af8aa3b39ae719a29001",
+        "checker": "1de771f1837c8110cf8ec0c4cc7b20e6d27955503bddef64beaa1c3081a34845",
+        "checker_amend": "1de771f1837c8110cf8ec0c4cc7b20e6d27955503bddef64beaa1c3081a34845",
+        "reader": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "reader_amend": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "editor": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "amend": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "title": "0325a10f379f26dc85075c9824c67a59585c6c10b72bf586f7d0a5f79b9d6c23"
+      }
+    },
+    {
+      "changes": {
+        "stage_mode": "longform-v1",
+        "unit_limit": 2,
+        "context_policy": "full-v1",
+        "card_selection_policy": "separate-v1",
+        "narrative_card_ids": [
+          "narrative"
+        ]
+      },
+      "contract": "542278f46475459ee407cc68a6c87b452ed8865f94889fd8b66c9d6f84e31003",
+      "amendment_contract": "542278f46475459ee407cc68a6c87b452ed8865f94889fd8b66c9d6f84e31003",
+      "render_sha256": {
+        "plan": "7424dab07ef6fc328f76a178d5b6bec14b3438430d321806bdce8db5ee8706f3",
+        "chief:1": "4a111cded8ed59b0e0d5dbd86b3d19110c750527523215ab5cef4e6957791584",
+        "write:1": "2e7f39496eebcb4cff50f529de148082db54df7881cf1276a5d77d9ff06d5c82",
+        "rewrite": "90f31afe9dbfabf04ded6418637fff0ac1a9d1c233afdffba71fa757e39446de",
+        "memory": "e27581b3182425325c4bdf5594cb815b668e94b1cd54af8aa3b39ae719a29001",
+        "memory:1": "f7c80ab253632aded1c124673a08c32e2bf19a3fa6f41901ca8e9ec5810d552c",
+        "memory_amend": "e27581b3182425325c4bdf5594cb815b668e94b1cd54af8aa3b39ae719a29001",
+        "checker": "1de771f1837c8110cf8ec0c4cc7b20e6d27955503bddef64beaa1c3081a34845",
+        "checker_amend": "1de771f1837c8110cf8ec0c4cc7b20e6d27955503bddef64beaa1c3081a34845",
+        "reader": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "reader_amend": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "editor": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "amend": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "title": "0325a10f379f26dc85075c9824c67a59585c6c10b72bf586f7d0a5f79b9d6c23"
+      }
+    },
+    {
+      "changes": {
+        "stage_mode": "longform-v1",
+        "unit_limit": 2,
+        "context_policy": "bounded-v1",
+        "card_selection_policy": "legacy-v1",
+        "narrative_card_ids": []
+      },
+      "contract": "52c5e190d1903390f182cdf507273c2a1e0a54033dbf1c346f4d4d2661734a30",
+      "amendment_contract": "52c5e190d1903390f182cdf507273c2a1e0a54033dbf1c346f4d4d2661734a30",
+      "render_sha256": {
+        "plan": "e3a93ea11608905e4bf65e959a8c6e18cc28a8646d87464188d2c06676e542ea",
+        "chief:1": "6f6727ced48350e2be6758e7a8aeffe7beebecd8f4b685cd643fe055ea02beac",
+        "write:1": "2e7f39496eebcb4cff50f529de148082db54df7881cf1276a5d77d9ff06d5c82",
+        "rewrite": "90f31afe9dbfabf04ded6418637fff0ac1a9d1c233afdffba71fa757e39446de",
+        "memory": "e27581b3182425325c4bdf5594cb815b668e94b1cd54af8aa3b39ae719a29001",
+        "memory:1": "f7c80ab253632aded1c124673a08c32e2bf19a3fa6f41901ca8e9ec5810d552c",
+        "memory_amend": "e27581b3182425325c4bdf5594cb815b668e94b1cd54af8aa3b39ae719a29001",
+        "checker": "1de771f1837c8110cf8ec0c4cc7b20e6d27955503bddef64beaa1c3081a34845",
+        "checker_amend": "1de771f1837c8110cf8ec0c4cc7b20e6d27955503bddef64beaa1c3081a34845",
+        "reader": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "reader_amend": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "editor": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "amend": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "title": "0325a10f379f26dc85075c9824c67a59585c6c10b72bf586f7d0a5f79b9d6c23"
+      }
+    },
+    {
+      "changes": {
+        "stage_mode": "longform-v1",
+        "unit_limit": 2,
+        "context_policy": "bounded-v1",
+        "card_selection_policy": "separate-v1",
+        "narrative_card_ids": [
+          "narrative"
+        ]
+      },
+      "contract": "82095b4e9b34663a0d1ff798ea75be431034a535774246c98343cd5ed46bf67d",
+      "amendment_contract": "82095b4e9b34663a0d1ff798ea75be431034a535774246c98343cd5ed46bf67d",
+      "render_sha256": {
+        "plan": "7424dab07ef6fc328f76a178d5b6bec14b3438430d321806bdce8db5ee8706f3",
+        "chief:1": "4a111cded8ed59b0e0d5dbd86b3d19110c750527523215ab5cef4e6957791584",
+        "write:1": "2e7f39496eebcb4cff50f529de148082db54df7881cf1276a5d77d9ff06d5c82",
+        "rewrite": "90f31afe9dbfabf04ded6418637fff0ac1a9d1c233afdffba71fa757e39446de",
+        "memory": "e27581b3182425325c4bdf5594cb815b668e94b1cd54af8aa3b39ae719a29001",
+        "memory:1": "f7c80ab253632aded1c124673a08c32e2bf19a3fa6f41901ca8e9ec5810d552c",
+        "memory_amend": "e27581b3182425325c4bdf5594cb815b668e94b1cd54af8aa3b39ae719a29001",
+        "checker": "1de771f1837c8110cf8ec0c4cc7b20e6d27955503bddef64beaa1c3081a34845",
+        "checker_amend": "1de771f1837c8110cf8ec0c4cc7b20e6d27955503bddef64beaa1c3081a34845",
+        "reader": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "reader_amend": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "editor": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "amend": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "title": "0325a10f379f26dc85075c9824c67a59585c6c10b72bf586f7d0a5f79b9d6c23"
+      }
+    },
+    {
+      "changes": {
+        "stage_mode": "longform-v1",
+        "unit_limit": 2,
+        "context_policy": "focused-v1",
+        "card_selection_policy": "legacy-v1",
+        "narrative_card_ids": []
+      },
+      "contract": "4f585021ce91c6320be7b92b0632344c338d6567fc2f9bbaad84b00daddfa2e0",
+      "amendment_contract": "4f585021ce91c6320be7b92b0632344c338d6567fc2f9bbaad84b00daddfa2e0",
+      "render_sha256": {
+        "plan": "4a24307a3f9153d84a1f9ebfc4a2358dc48a810dd10000d24e45484b9e8c6882",
+        "chief:1": "88779aca6b43cef2b050d2753829b0af792bb6c893dff27f90232d13c00ca315",
+        "write:1": "c5b4bc16c010a96e8f7abfcef58ca3c59d13bf7297f8fd05d5661289d11ba098",
+        "rewrite": "78cb7d620eeb5f5278097e5bacc602d10464f262d3ea369799d84d0767c7ad66",
+        "memory": "6e416defe816522f7ab535306315a83d779cf714c7e0210cd54b5a31db9c5bb9",
+        "memory:1": "0fa3eb2ab68ad634f8af26cbf5bad72b149f0d010b74198785293594c4943531",
+        "memory_amend": "6e416defe816522f7ab535306315a83d779cf714c7e0210cd54b5a31db9c5bb9",
+        "checker": "549daaaf879515ee313b9ffa84ba9f0cc6babeff47f8ab2c402480149e22fdbd",
+        "checker_amend": "549daaaf879515ee313b9ffa84ba9f0cc6babeff47f8ab2c402480149e22fdbd",
+        "reader": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "reader_amend": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "editor": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "amend": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "title": "0325a10f379f26dc85075c9824c67a59585c6c10b72bf586f7d0a5f79b9d6c23"
+      }
+    },
+    {
+      "changes": {
+        "stage_mode": "longform-v1",
+        "unit_limit": 2,
+        "context_policy": "focused-v1",
+        "card_selection_policy": "separate-v1",
+        "narrative_card_ids": [
+          "narrative"
+        ]
+      },
+      "contract": "8f4efe4f8e1d47c0099380ce81d831548c0a702678e495ba63b8b9df3b2c02e6",
+      "amendment_contract": "8f4efe4f8e1d47c0099380ce81d831548c0a702678e495ba63b8b9df3b2c02e6",
+      "render_sha256": {
+        "plan": "c439faaa8ded732e7b5681ccb3039fa58d7979165c0e6da809b9faed820f7c6a",
+        "chief:1": "9e4abaa6754a7920fa99fe8b6c0b7898ab08022109e65bf6f6eaa47775a9e02c",
+        "write:1": "c5b4bc16c010a96e8f7abfcef58ca3c59d13bf7297f8fd05d5661289d11ba098",
+        "rewrite": "78cb7d620eeb5f5278097e5bacc602d10464f262d3ea369799d84d0767c7ad66",
+        "memory": "6e416defe816522f7ab535306315a83d779cf714c7e0210cd54b5a31db9c5bb9",
+        "memory:1": "0fa3eb2ab68ad634f8af26cbf5bad72b149f0d010b74198785293594c4943531",
+        "memory_amend": "6e416defe816522f7ab535306315a83d779cf714c7e0210cd54b5a31db9c5bb9",
+        "checker": "549daaaf879515ee313b9ffa84ba9f0cc6babeff47f8ab2c402480149e22fdbd",
+        "checker_amend": "549daaaf879515ee313b9ffa84ba9f0cc6babeff47f8ab2c402480149e22fdbd",
+        "reader": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "reader_amend": "1cc397a6fd80ec9c5ac1e9f76385a8c576ed21b6cd6f0818d37a4a89db2afa1a",
+        "editor": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "amend": "222eef74b5b8063c39b84ad639775552bfa4c95861a857bfbb5d48c8d714f77e",
+        "title": "0325a10f379f26dc85075c9824c67a59585c6c10b72bf586f7d0a5f79b9d6c23"
+      }
+    }
+  ]
+}

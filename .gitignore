@@ -1,4 +1,80 @@
-deploy/local/
-*.zip
-*.tar.gz
+.venv/
 __pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+dist/
+build/
+*.egg-info/
+.env
+.env.*
+!.env.example
+
+# Editors and operating-system metadata
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# Frontend
+node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/debug.log
+frontend/vite-e2e*.log
+*.tsbuildinfo
+
+# Local runtime and author data
+data/
+logs/
+backups/
+exports/
+archives/
+artifacts/
+private/
+docs/private/
+*.log
+*.dump
+*.backup
+*.sqlite
+*.sqlite3
+*.db
+*.zip
+*.7z
+*.tar
+*.tar.gz
+
+# Keys and certificates must never be committed.
+*.pem
+*.key
+*.pfx
+*.p12
+*.jks
+*.keystore
+*.secret
+*.secrets
+
+# Local tool state
+.uv/
+.runtime/
+.agents/
+.codex/
+
+# Server credentials and local Compose settings are generated after deployment.
+deploy/local/
+
+# Private workstation collaboration and operational records.
+AGENTS.md
+MEMORY.md
+PROGRESS.md
+ROADMAP.md
+docs/CURRENT_STATE.md
+docs/history/
+docs/reports/

@@ -1,0 +1,13 @@
+@import "./styles/base.css";
+@import "./styles/management.css";
+@import "./styles/reference-style.css";
+@import "./styles/blueprint.css";
+@import "./styles/detail.css";
+/* Author-selected cards separate story subject, narration, and mechanisms. */
+.creative-card-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; }
+.creative-card-groups fieldset { min-width: 0; }
+.creative-card-groups label { display: flex; align-items: flex-start; gap: 8px; margin: 10px 0; overflow-wrap: anywhere; }
+.creative-card-groups input[type="checkbox"] { width: auto; flex: 0 0 auto; margin-top: 4px; }
+.creative-card-detail { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+.creative-card-detail > div { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 760px) { .creative-card-detail { grid-template-columns: minmax(0, 1fr); } }

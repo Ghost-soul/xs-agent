@@ -1,0 +1,69 @@
+name: Publish Docker image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'frontend/**'
+      - 'configs/genre-quality-cards/**'
+      - 'migrations/**'
+      - 'deploy/**'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'scripts/package_docker.py'
+      - '.github/workflows/docker-image.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-container-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Prepare allowlisted Docker context
+        run: python3 scripts/package_docker.py --output "$RUNNER_TEMP/docker-public"
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and publish
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ runner.temp }}/docker-public/source
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/ghost-soul/xs-agent:latest
+            ghcr.io/ghost-soul/xs-agent:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/Ghost-soul/xs-agent
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.title=Novel Writer
+            org.opencontainers.image.description=Blank-instance fiction writing workspace
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Record image digest
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          echo 'Image: ghcr.io/ghost-soul/xs-agent:latest' >> "$GITHUB_STEP_SUMMARY"
+          echo "Digest: $IMAGE_DIGEST" >> "$GITHUB_STEP_SUMMARY"

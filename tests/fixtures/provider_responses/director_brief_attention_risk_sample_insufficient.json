@@ -1,0 +1,50 @@
+{
+  "situation_handoff": "既有行动刚造成可见后果，新的现场压力随即出现",
+  "core_conflict": "视角人物必须处理眼前压力，而阻力方要阻止其取得结果",
+  "emotion_arc": "从警觉进入更紧迫的判断压力",
+  "information_mission": "只确认一个现场事实，同时保留事实背后的原因",
+  "character_constraints": "人物只能依据已经获得的证据行动，不能凭空知道答案",
+  "pacing_instruction": "先让行动改变局势，再给出必要信息",
+  "primary_payoff": "兑现一个既有疑问，并形成下一步可执行行动",
+  "attention_risk": "样本不足",
+  "ending_consequence": "本单元的选择必须留下可见且可延续的现实后果",
+  "prohibitions": [
+    "不得由陌生人直接交付答案"
+  ],
+  "viewpoint_desire": "视角人物想在机会消失前确认现场事实",
+  "opposing_desire": "阻力方要让证据失效并迫使对方离开",
+  "forced_choice": "人物必须在保住证据与避免眼前代价之间承担取舍",
+  "payoff_debt": "支付此前已经建立的现场疑问",
+  "information_budget": {
+    "may_reveal": [
+      "现场事实已经发生"
+    ],
+    "must_withhold": [
+      "事实背后的完整原因"
+    ],
+    "reader_should_reconsider": "先前判断是否忽略了现场变化"
+  },
+  "dramatic_reveals": [
+    {
+      "reveal_id": "reveal-1",
+      "reveal_scope": "partial_confirmation",
+      "reveal": "现场事实已经发生",
+      "carrier": "正在失效的现场证据",
+      "resistance": "阻力方正在破坏证据",
+      "immediate_consequence": "人物被迫立即改变行动",
+      "withheld_part": "事实背后的完整原因"
+    }
+  ],
+  "unit_function": "discovery",
+  "closure_mode": "open_consequence",
+  "payoff_status": "advance",
+  "scene_energy": "balanced",
+  "dominant_change": "knowledge",
+  "variation_constraint": "避免重复相同的进入与说明结构",
+  "freedoms": [
+    "设计可信行动"
+  ],
+  "forbidden_shortcuts": [
+    "不得依赖巧合"
+  ]
+}

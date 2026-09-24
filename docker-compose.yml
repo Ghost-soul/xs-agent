@@ -1,9 +1,9 @@
-# Import the application image from the release bundle before starting.
+# Server deployment. Development database: docker compose -f compose.dev.yaml.
 name: ${NOVEL_WRITER_STACK:-novel-writer-server}
 
 x-application: &application
-  image: novel-writer:${NOVEL_WRITER_IMAGE_TAG:-2026.09.24}
-  pull_policy: never
+  image: ${NOVEL_WRITER_IMAGE:-ghcr.io/ghost-soul/xs-agent:latest}
+  pull_policy: missing
   init: true
   read_only: true
   cap_drop: [ALL]

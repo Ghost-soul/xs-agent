@@ -1,0 +1,68 @@
+import { expect, test } from "@playwright/test";
+
+test("manual cards survive search, mode changes and reload without altering an existing preview", async ({ page }, testInfo) => {
+  const cards = [{ id: "world", name: "奇幻", layer: "genre" }, ...["百合", "种田文", "推理"].map((name, i) => ({ id: `n${i}`, name, layer: "narrative" }))];
+  const writes: { path: string; body: Record<string, unknown> }[] = [];
+  let batch: Record<string, unknown> | null = null;
+  await page.route("**/backend/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname.replace(/^\/backend/, "");
+    let value: unknown = [];
+    if (request.method() !== "GET") {
+      expect(request.method()).toBe("POST");
+      expect(["/api/projects/p/generation-batches", "/api/projects/p/generation-batches/random-preview"]).toContain(path);
+      const body = request.postDataJSON();
+      writes.push({ path, body });
+      const random = path.endsWith("/random-preview");
+      const ids = random ? ["n2", "n0"] : body.narrative_card_ids;
+      batch = { id: `b${writes.length}`, project_id: "p", revision: "genre-led-longform-v1", status: "draft", next_action: "plan", preview_sha256: `sha${writes.length}`, spec: { ...body, narrative_card_ids: ids }, snapshot: { maximum_cost_cny: "1", maximum_calls: 7, blockers: [], cards: cards.filter((c) => ids.includes(c.id)), ...(random ? { narrative_selection_policy: "random-two-v1" } : {}) }, state: {}, calls: [], artifacts: [] };
+      value = batch;
+    } else if (path === "/health") value = { status: "ok" };
+    else if (path === "/api/projects") value = [{ project_id: "p", title: "手动叙事验证", current_version: 1, created_at: "2026-09-24T00:00:00Z" }];
+    else if (path === "/api/search/status") value = { status: "ready" };
+    else if (path === "/api/provider-profiles") value = [{ id: "fixture", display_name: "离线替身", enabled: true, allow_story_data: true, credential_required: false, default_model: "m", models: [{ id: "m" }] }];
+    else if (path.endsWith("/generation-batches/setup")) value = { configuration_revision: "author-intent-v1", context_budget_revision: "focused-v1", output_budget_revision: "chief-output-v1", automation_revision: "stage-auto-v1", base_version_id: "v", version: 1, characters: [], narrative_position: {}, available_cards: cards, style: { genre_card_id: "world", secondary_genre_card_ids: [], matched_cards: cards } };
+    else if (path.endsWith("/generation-batches")) value = batch ? [{ id: batch.id, direction: "手动选择", status: "draft" }] : [];
+    else if (/\/b\d+$/.test(path)) value = batch;
+    await route.fulfill({ status: 200, json: value });
+  });
+  await page.goto("/projects/p/create");
+  const mode = page.getByLabel("叙事卡选择方式");
+  await expect(mode).toHaveValue("random");
+  await mode.selectOption("manual");
+  await page.getByLabel("叙事卡：百合", { exact: true }).check();
+  await page.getByLabel("查找叙事卡").fill("种田");
+  await page.getByLabel("叙事卡：种田文", { exact: true }).check();
+  await page.getByLabel("查找叙事卡").fill("推理");
+  await page.getByLabel("叙事卡：推理", { exact: true }).check();
+  await expect(page.getByText("已选：百合、种田文、推理", { exact: true })).toBeVisible();
+  await mode.selectOption("random");
+  await expect(page.getByRole("checkbox", { name: /^叙事卡：/ })).toHaveCount(0);
+  await mode.selectOption("manual");
+  await expect(page.getByLabel("叙事卡：百合", { exact: true })).toBeChecked();
+  await expect.poll(() => page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => { const request = indexedDB.open("novel-writer-local-drafts-v1"); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+    return new Promise<boolean>((resolve) => { const request = db.transaction("drafts").objectStore("drafts").get("generation-form:p"); request.onsuccess = () => { const payload = request.result?.payload; db.close(); resolve(payload?.narrative_selection_mode === "manual" && payload?.narrative_card_ids?.length === 3); }; });
+  })).toBe(true);
+  await page.reload();
+  await expect(mode).toHaveValue("manual");
+  for (const name of ["百合", "种田文", "推理"]) await expect(page.getByLabel(`叙事卡：${name}`, { exact: true })).toBeChecked();
+  await page.getByRole("button", { name: "建立新预览（不调用模型）", exact: true }).click();
+  await expect(page.getByLabel("本阶段叙事卡")).toContainText("百合、种田文、推理");
+  await expect(page.getByRole("button", { name: "授权并开始阶段创作", exact: true })).toBeDisabled();
+  expect(writes).toHaveLength(1);
+  expect(writes[0]).toMatchObject({ path: "/api/projects/p/generation-batches", body: { narrative_card_ids: ["n0", "n1", "n2"] } });
+  expect(writes[0].body).not.toHaveProperty("narrative_selection_mode");
+  await page.getByRole("button", { name: "新建阶段", exact: true }).click();
+  await mode.selectOption("random");
+  await expect(page.getByLabel("本阶段叙事卡")).toContainText("百合、种田文、推理");
+  await page.getByRole("button", { name: "建立新预览（不调用模型）", exact: true }).click();
+  await expect(page.getByLabel("本阶段叙事卡")).toContainText("推理、百合");
+  expect(writes).toHaveLength(2);
+  expect(writes[1]).toMatchObject({ path: "/api/projects/p/generation-batches/random-preview", body: { narrative_card_ids: [] } });
+  await page.getByRole("button", { name: "新建阶段", exact: true }).click();
+  await mode.selectOption("manual");
+  await expect(page.getByText("已选：百合、种田文、推理", { exact: true })).toBeVisible();
+  await page.locator(".generation-new-settings").screenshot({ path: testInfo.outputPath("manual-card-selection.png") });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+});

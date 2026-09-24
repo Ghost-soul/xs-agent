@@ -1,0 +1,57 @@
+{
+  "manifest": {
+    "contract_version": "causal-handoff-manifest-v1",
+    "project_id": "c5899245-11a9-4140-bed8-08eb7f3c792c",
+    "source_version_id": "fc116e30-aa3d-4e17-9a24-eb4a86637ddf",
+    "source_version_number": 3,
+    "source_session_id": "a942ea91-2d53-4035-877f-4a4ec79dc9fc",
+    "chapter_ids": [
+      "8fa61783-85f3-4aab-a0cb-d3240bc21c49"
+    ],
+    "source_brief_sha256": "ed417b0ab973234b5761436521a178fe6beef3cce5bd2caf6371f24670e88365",
+    "handoffs": [
+      {
+        "contract_version": "causal-handoff-v1",
+        "handoff_id": "3fb1de964eac9d18f54ead56549504dfa7e3d908547d9b7cc5794e80287aaea9",
+        "project_id": "c5899245-11a9-4140-bed8-08eb7f3c792c",
+        "source_version_id": "fc116e30-aa3d-4e17-9a24-eb4a86637ddf",
+        "source_version_number": 3,
+        "source_session_id": "a942ea91-2d53-4035-877f-4a4ec79dc9fc",
+        "source_chapter_id": "8fa61783-85f3-4aab-a0cb-d3240bc21c49",
+        "source_chapter_ordinal": 2,
+        "source_body_sha256": "7eb9cc2c89caf399de8d75dacd7d88798bff64a332a035b10f3735d379bd6e4d",
+        "source_memory_chunk_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_brief_sha256": "ed417b0ab973234b5761436521a178fe6beef3cce5bd2caf6371f24670e88365",
+        "source_outcome_id": "e5b7dfc70336b5a770b368f07a205f18c2b2238e2092277a422788b3edf67db2",
+        "predecessor_handoff_ids": [],
+        "cause_action": "林遥烧掉通行证",
+        "result": "守军封闭侧门",
+        "cost": "失去合法入城凭证",
+        "open_consequence": "必须寻找另一条路",
+        "payoff_delta": "none",
+        "linked_foreshadowing_ids": [],
+        "linked_reader_promise_ids": [],
+        "linked_open_question_ids": [],
+        "evidence": [
+          {
+            "chapter_id": "8fa61783-85f3-4aab-a0cb-d3240bc21c49",
+            "chapter_ordinal": 2,
+            "start": 8,
+            "end": 16,
+            "quote": "守军立刻封闭侧门"
+          }
+        ],
+        "artifact_sha256": "b372702e9495f5baa91355a2dae7e0bd24d8ef4fd27fd6b2cd588291daa3d2a4"
+      }
+    ],
+    "diagnostics": [],
+    "manifest_sha256": "2eaafa10af4c43ec8699da23d8a658790138d6c20528aac32d6a996ac4486bd8"
+  },
+  "segments": [
+    {
+      "chapter_id": "8fa61783-85f3-4aab-a0cb-d3240bc21c49",
+      "ordinal": 2,
+      "body": "林遥烧掉通行证，守军立刻封闭侧门。"
+    }
+  ]
+}

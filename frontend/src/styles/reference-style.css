@@ -1,0 +1,47 @@
+
+/* Local reference-style extraction */
+.reference-style-panel { display: grid; gap: 18px; margin: 24px 0; padding: 22px; border: 1px solid #d6dddf; border-radius: 8px; background: #fbfcfb; }
+.reference-style-panel h3, .reference-style-panel h4 { margin: 0; }
+.reference-active { padding: 6px 10px; border-radius: 999px; color: #276447; background: #e5f3eb; font-weight: 700; }
+.reference-register, .reference-profile-stage, .contract-editor, .blind-test { display: grid; gap: 12px; }
+.reference-register > label, .reference-profile-stage > label, .reference-sample > label { display: grid; gap: 6px; color: #596568; font-size: 12px; }
+.manifest-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid #dce2e3; border-radius: 6px; background: #fff; }
+.manifest-summary > div { display: grid; gap: 5px; padding: 13px; min-width: 0; }
+.manifest-summary > div + div { border-left: 1px solid #e1e6e7; }
+.manifest-summary span, .manifest-summary small { color: #728084; font-size: 11px; }
+.manifest-summary code { overflow: hidden; text-overflow: ellipsis; }
+.reference-category-tabs { display: flex; flex-wrap: wrap; gap: 7px; }
+.reference-category-tabs button { padding: 7px 10px; border: 1px solid #cbd4d6; border-radius: 999px; color: #546164; background: #fff; }
+.reference-category-tabs button.active { color: #fff; border-color: #486d78; background: #486d78; }
+.reference-category-tabs small { margin-left: 3px; opacity: .8; }
+.reference-samples { display: grid; gap: 14px; }
+.reference-sample { display: grid; gap: 12px; padding: 16px; border: 1px solid #d7dfe1; border-left: 4px solid #9ca9ac; border-radius: 6px; background: #fff; }
+.reference-sample.approved { border-left-color: #3f8a63; }
+.reference-sample.excluded { border-left-color: #a64a43; opacity: .82; }
+.reference-sample.false_positive { border-left-color: #bd7b22; }
+.reference-sample header { display: flex; justify-content: space-between; gap: 12px; }
+.reference-sample header div { display: grid; gap: 3px; }
+.reference-sample header span { color: #758185; font-size: 11px; }
+.reference-sample pre { max-height: 340px; margin: 0; padding: 14px; overflow: auto; white-space: pre-wrap; font: 14px/1.8 "Microsoft YaHei", sans-serif; background: #f6f7f6; }
+.dimension-grid { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.dimension-grid label, .blind-test label { display: flex; align-items: center; gap: 6px; color: #4e5b5e; font-size: 12px; }
+.dimension-grid input, .blind-test input { width: 15px; height: 15px; }
+.sample-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.reference-profile-stage { padding-top: 18px; border-top: 1px solid #d8dfe1; }
+.profile-metrics { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 12px; background: #eef4f2; }
+.profile-metrics span, .profile-metrics code { color: #607074; font-size: 12px; }
+.contract-editor > div { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 8px; }
+.contract-editor textarea { min-height: 64px; }
+.blind-test { padding: 14px; border: 1px solid #d5dede; background: #fff; }
+@media (max-width: 900px) { .manifest-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .manifest-summary > div:nth-child(3) { border-left: 0; border-top: 1px solid #e1e6e7; } .manifest-summary > div:nth-child(4) { border-top: 1px solid #e1e6e7; } }
+@media (max-width: 620px) { .reference-style-panel { padding: 16px; } .manifest-summary, .contract-editor > div { grid-template-columns: 1fr; } .manifest-summary > div + div { border-left: 0; border-top: 1px solid #e1e6e7; } .sample-actions { flex-direction: column; } }
+
+@media (max-width: 390px) {
+  .reader-directory button { width: 145px; flex-basis: 145px; }
+  .reader-chapter { width: calc(100% - 28px); padding-top: 38px; }
+  .reader-chapter > header { margin-bottom: 34px; }
+  .reader-body { font-size: 17px; line-height: 1.95; text-align: left; }
+  .reader-chapter footer { grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 50px; }
+  .reader-chapter footer span { grid-column: 1 / -1; grid-row: 1; text-align: center; }
+  .reader-chapter footer button { width: 100%; }
+}

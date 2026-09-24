@@ -1,0 +1,21 @@
+{
+  "id": "fixture-editor-title",
+  "object": "chat.completion",
+  "model": "fixture-reasoning-model",
+  "choices": [
+    {
+      "finish_reason": "length",
+      "message": {
+        "content": "",
+        "reasoning_content": "{\"chapters\":[{\"chapter_id\":\"chapter-1\",\"titles\":[{\"title\":\"隐藏标题\",\"type\":\"核心意象型\",\"basis\":\"motif\",\"anchor_ids\":[\"anchor-1\"],\"reason\":\"隐藏推理中的候选不得成为正式标题\",\"model_rank\":1}]}]}"
+      }
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 160,
+    "completion_tokens": 240,
+    "completion_tokens_details": {
+      "reasoning_tokens": 240
+    }
+  }
+}

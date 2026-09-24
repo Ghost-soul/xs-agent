@@ -1,73 +1,52 @@
-# Docker 部署：全新空白实例
+# Docker 部署说明
 
-应用镜像包含前端、后端、当前活动卡库和数据库迁移代码。PostgreSQL 为独立容器，两者由同一
-Docker Compose 项目管理。只需 Linux x86_64 服务器、Docker Engine 与 Compose v2；
-从源码构建时需要下载依赖。镜像在本地生成，不会自动上传任何镜像仓库。
+首次在线部署按 [仓库 README](../README.md) 操作，使用 `ghcr.io/ghost-soul/xs-agent:latest`。应用包含网页和后端，PostgreSQL 为独立容器。支持 Linux x86_64 / amd64。
 
-包内没有本机 `.env`、API Key、Provider 配置、登录令牌、小说、人物／世界资料、历史响应、费用、
-参考语料、日志、备份或 Git 历史。启动后数据库为空，模型供应商及 Key 在网页中重新配置。
-不要把运行后生成的 `deploy/local/` 或 Docker 数据卷加入可分享部署包。
+## 初始化与运行资料
 
-## 首次启动
+`python3 deploy/configure.py` 在服务器生成随机密码和 `deploy/local/deployment.env`。默认账号为 `author`，网页登录密码在 `deploy/local/secrets/web_password`。已有配置时拒绝覆盖，更新时沿用原文件。
 
-在解压后的根目录执行。Python 3 只用于一次性生成服务器配置，不需要安装应用依赖。
+- `application-data` 保存新服务器上的正文、故事资料、模型配置和私有凭据。
+- `database-data` 保存新 PostgreSQL 数据库。
+- `application-logs` 保存服务器日志。
+- `deploy/local/secrets/` 保存数据库和网页登录密码，以只读文件挂载进入容器。
+
+镜像和公开源码不含这些运行资料，也不含本机原小说、模型 Key、账单、历史调用、参考语料或备份。API Key 登录网页后重新配置。旧作品导入是独立操作。
+
+应用以非 root UID 10001 运行，根文件系统只读；数据库端口不对外发布。默认应用仅监听本机，远程个人访问使用 SSH 隧道。域名访问配置 HTTPS 反向代理并保留 Host 和 Origin。内部 API 令牌仅保留在服务器，不写入浏览器脚本。
+
+## 停止与迁移
+
+确认创作暂停、没有在途调用后再停止应用。Compose 默认允许 360 秒退出，当前响应最多等待 300 秒；未知结果不会自动重发或增加模型费用。
+
+若调整 `NOVEL_WRITER_GENERATION_SHUTDOWN_GRACE_SECONDS`，同步将 `NOVEL_WRITER_STOP_GRACE_PERIOD` 设为至少多出 60 秒，例如 `660s`。
+
+迁移命令 `docker compose --env-file deploy/local/deployment.env run --rm migrate` 是显式维护操作；已有应用在线持有存储锁时会拒绝执行。停止或重建容器保留数据卷，正常维护不要使用 `down -v`。
+
+## 初始离线镜像包
+
+[下载初始 ZIP](https://github.com/Ghost-soul/xs-agent/releases/download/docker-2026.09.25/novel-writer-docker-20260925.zip)，SHA-256：
+
+```text
+8dc6a42f9211ff48133068c5d943ee70aa470d7ac00582688415ca9efab7790d
+```
+
+在已克隆的仓库目录中执行：
 
 ```sh
+unzip novel-writer-docker-20260925.zip novel-writer-images.tar.gz
+docker load -i novel-writer-images.tar.gz
 python3 deploy/configure.py
-docker compose --env-file deploy/local/deployment.env -f deploy/compose.yaml build app
-docker compose --env-file deploy/local/deployment.env -f deploy/compose.yaml up -d database
-docker compose --env-file deploy/local/deployment.env -f deploy/compose.yaml run --rm migrate
-docker compose --env-file deploy/local/deployment.env -f deploy/compose.yaml up -d app
-docker compose --env-file deploy/local/deployment.env -f deploy/compose.yaml ps
+export NOVEL_WRITER_IMAGE=novel-writer:2026.09.24
+docker compose --env-file deploy/local/deployment.env up -d database
+docker compose --env-file deploy/local/deployment.env run --rm migrate
+docker compose --env-file deploy/local/deployment.env up -d app
 ```
 
-若已取得配套镜像包，先 `docker load -i novel-writer-images.tar.gz`，并省略上面的 `build app`。
-数据库迁移是显式维护步骤，不在每次应用启动时自动执行。应用使用非 root UID 10001，
-只读容器根目录、独立可写数据／日志卷；没有对外发布 PostgreSQL 端口。
+离线包是固定的初始版本；如需后续更新，使用 GHCR 或重新构建。长期离线使用时，将生成的 `deployment.env` 中 `NOVEL_WRITER_IMAGE` 改为 `novel-writer:2026.09.24`，后续终端不需要再次 export。
 
-默认访问地址为 `http://localhost:8080`，账号 `author`，密码保存在
-`deploy/local/secrets/web_password`。在服务器终端查看该文件即可登录；浏览器会弹出登录框。
-该密码由首次配置时随机生成，与模型 API Key 不同。
+## 源码与可选分词器
 
-从自己电脑访问远程服务器，保持默认本机监听并建立 SSH 隧道：
+从源码构建优先使用 README 中的白名单打包方式。也可显式执行 `docker compose --env-file deploy/local/deployment.env -f deploy/compose.yaml build app`；该文件保留源码构建配置，根目录 Compose 用于拉取和部署。
 
-```sh
-ssh -N -L 8080:127.0.0.1:8080 <用户>@<服务器>
-```
-
-随后在自己电脑打开 `http://localhost:8080`。如需域名访问，在运行 configure 时指定
-`--origin https://你的域名`，由同机 HTTPS 反向代理转发到 `127.0.0.1:8080`，保留原 Host 和 Origin。
-浏览器写操作只接受配置的网站 Origin，内部 API 令牌由服务器注入，不进入前端脚本。
-默认没有公网监听。改变浏览器地址或端口时需同步修改 `deployment.env` 中的 Origin。
-
-## 数据与更新
-
-- `application-data`：新服务器创建的资料、正文缓冲、模型设置、私有凭据和可选分词资产。
-- `database-data`：服务器的新 PostgreSQL 数据库。与开发环境现有 Compose 项目和卷隔离。
-- `application-logs`：服务器运行日志。
-- `deploy/local/secrets/`：新服务器数据库密码与网页登录密码，通过运行时 secret 文件挂载。
-
-停止或重建容器不会删除这些数据。请勿使用 `docker compose down -v`，它会删除数据卷。
-更新镜像时沿用原 `deploy/local/` 配置，不重新生成密码。先确认创作暂停、没有在途调用，
-再 `stop app`；必要时显式运行迁移，最后 `up -d app`。Compose 默认允许应用用 360 秒退出，
-当前响应最多等待 300 秒；未知结果仍不会自动重发或增加模型费用。
-若调整 `NOVEL_WRITER_GENERATION_SHUTDOWN_GRACE_SECONDS`，同步将
-`NOVEL_WRITER_STOP_GRACE_PERIOD` 设为至少多出 60 秒的时间，例如 `660s`。
-
-卡库包含在镜像中，修改卡文后重新构建。没有复制本机 `data/tokenizers`；初始使用明确标注的
-UTF-8 字节保守上界，若要精确分词，应在服务器数据卷的 `tokenizers/` 安装可信的模型分词文件
-和对应来源／SHA 清单。应用不会自动下载分词器。
-
-导入旧作品须另行明确操作，本部署流程不连接、不导出、不迁移原本机数据库。
-旧语料绝对路径也不会随镜像带入服务器。
-
-## 从开发仓库重新打包
-
-```sh
-python scripts/package_docker.py --output dist/docker-release-new
-docker build -t novel-writer:2026.09.24 dist/docker-release-new/source
-```
-
-打包工具使用明确的程序文件白名单，输出 `SOURCE-MANIFEST.json` 与源码 ZIP；构建只读取这个
-经过筛选的目录。Dockerfile 只复制指定程序资源，`.dockerignore` 另行排除运行数据与密钥。
-不要对正在运行且已写入个人数据的容器使用 `docker commit` 来制作分享镜像。
+活动题材与叙事卡编入镜像，修改后重新构建。没有打包本机分词资产；默认使用明确标注的 UTF-8 字节保守上界，精确分词需在数据卷的 `tokenizers/` 中另行安装可信文件及来源／SHA 清单，应用不会自动下载。

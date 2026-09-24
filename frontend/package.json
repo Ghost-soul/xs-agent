@@ -1,0 +1,40 @@
+{
+  "name": "novel-writer-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.13.1",
+  "engines": {
+    "node": ">=22 <23",
+    "pnpm": ">=10 <11"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:update": "playwright test --update-snapshots",
+    "generate:api": "powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/generate-api.ps1"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "4.6.0",
+    "diff": "8.0.2",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-router-dom": "7.8.2",
+    "typescript": "5.8.3",
+    "vite": "7.0.5"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
+    "@playwright/test": "1.55.0",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "19.1.8",
+    "@types/react-dom": "19.1.6",
+    "jsdom": "^29.1.1",
+    "openapi-typescript": "^7.13.0",
+    "vitest": "^4.1.10"
+  }
+}

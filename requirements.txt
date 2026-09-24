@@ -1,0 +1,2 @@
+# Compatibility pointer only. Install the project with `uv sync --frozen`.
+-e .

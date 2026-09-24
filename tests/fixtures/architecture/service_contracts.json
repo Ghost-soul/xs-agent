@@ -1,0 +1,23 @@
+{
+  "structural_schemas": {
+    "StructuralCleanupConfirmRequest": "379bc0e76de197c3c53732ac7091d0fc0fc3a03b017fc37acd14ee5690c8b28e",
+    "StructuralReorderPlanCreateRequest": "266341696baee1e0feb0eabf1bc553ace257ae08f96e12bc5bf0da1b9c96fba4",
+    "StructuralReorderCandidateCreateRequest": "bd76001bbd2ddb8d2fa12bb995f3d5aad5bb0ac5dc1d5e0a8fef6b637aefe989",
+    "StructuralCleanupReviewPrepareRequest": "faf7ba6a8418f3d384796e03fe95a927b720d9b6453913a70f474112a7b28325",
+    "StructuralCleanupReviewExecuteRequest": "d8d27100381bba58c0514fe6386b7c4ce6cf55719aad56d6f0ac9093148d354c",
+    "StructuralCleanupReaderPrepareRequest": "969a292ce59869cf6fb930fcb3cd3628a35b1fc273f9ab7fe24ee5ec0a11ae69",
+    "StructuralCleanupSegmentPrepareRequest": "6cacbe7686a3ca67a78b22d4c6a2bea146d80718635550c7b34238d6b41964a5",
+    "StructuralCleanupTitlePrepareRequest": "80e129a103eb3a294c2f7230b6a03507ab1aa3e634ee4a71ec70f825658b921a",
+    "StructuralCleanupFinalReviewPrepareRequest": "1dd92806583c339d8e9e15608ef874aa6432c0cd3cb9ac46c6669acf37510d5e",
+    "StructuralCleanupReviewInvalidated": "f64108497e7b6f094a335aff1c93c2f5eec0c80ddbeb922d534a7925393507ac",
+    "StructuralCleanupView": "38830622df4e48e28c7cb909dac7e943b4fe9ebde2ae423deee8e7031527e7dc"
+  },
+  "writer": {
+    "legacy:False": "b6c524fc945f1239a37912c294fc680e52c7361ce97e111f0a7598f4cc2c82be",
+    "legacy:True": "33ba42ef685a8b38a7e0d113b9794359224b81fa7ce5ffdb6b085be96f16fa54",
+    "frozen_legacy:False": "7825fb559be3877e30a2f476a142c4c519b65500723e3fa410dafde697e3d0ee",
+    "frozen_legacy:True": "e67358f8ecead530138146499d05aab43dbe9537d753fd4166d95b54960e092e",
+    "stage_unit:False": "e3c2357869350b2a0bcd3f8e3e0a282e4d4d083bcbf7556ac49c9d0aa0688e98",
+    "stage_unit:True": "09e96fb51326d96fcdc81afab81bcba7993c56ade6843dcd064d70d1ee99422c"
+  }
+}
