@@ -3,17 +3,20 @@ FROM node:22.18.0-bookworm-slim AS frontend
 WORKDIR /build/frontend
 RUN corepack enable && corepack prepare pnpm@10.13.1 --activate
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=xs-agent-pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile --store-dir /pnpm/store
 COPY frontend/index.html frontend/tsconfig*.json frontend/vite.config.ts ./
 COPY frontend/src ./src
 RUN pnpm build
 
 FROM python:3.12.10-slim-bookworm AS dependencies
+ENV UV_LINK_MODE=copy
 WORKDIR /app
 RUN pip install --no-cache-dir uv==0.8.3
 COPY pyproject.toml uv.lock ./
 COPY deploy/README.md ./README.md
-RUN uv sync --locked --no-dev --no-install-project --no-cache
+RUN --mount=type=cache,id=xs-agent-uv,target=/root/.cache/uv \
+    uv sync --locked --no-dev --no-install-project
 
 FROM python:3.12.10-slim-bookworm AS application
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/app/src:/app \
@@ -33,5 +36,7 @@ COPY --from=frontend /build/frontend/dist ./web
 USER 10001:10001
 EXPOSE 8000
 STOPSIGNAL SIGTERM
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
+    CMD ["python", "-B", "/app/deploy/healthcheck.py"]
 ENTRYPOINT ["python", "-B", "/app/deploy/entrypoint.py"]
 CMD ["serve"]

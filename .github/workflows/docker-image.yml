@@ -13,7 +13,7 @@ on:
       - '.dockerignore'
       - 'pyproject.toml'
       - 'uv.lock'
-      - 'scripts/package_docker.py'
+      - 'scripts/prepare_docker_context.py'
       - '.github/workflows/docker-image.yml'
   workflow_dispatch:
 
@@ -35,7 +35,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Prepare allowlisted Docker context
-        run: python3 scripts/package_docker.py --output "$RUNNER_TEMP/docker-public"
+        run: python3 scripts/prepare_docker_context.py --output "$RUNNER_TEMP/docker-public"
       - name: Set up Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - name: Log in to GitHub Container Registry

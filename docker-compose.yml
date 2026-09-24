@@ -1,10 +1,17 @@
 # Server deployment. Development database: docker compose -f compose.dev.yaml.
 name: ${NOVEL_WRITER_STACK:-novel-writer-server}
 
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 x-application: &application
   image: ${NOVEL_WRITER_IMAGE:-ghcr.io/ghost-soul/xs-agent:latest}
   pull_policy: missing
   init: true
+  logging: *logging
   read_only: true
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
@@ -45,8 +52,11 @@ services:
     profiles: [maintenance]
     command: [migrate]
     restart: "no"
+    healthcheck:
+      disable: true
   database:
     image: pgvector/pgvector:0.8.0-pg17
+    logging: *logging
     environment:
       POSTGRES_DB: ${NOVEL_WRITER_DATABASE_NAME:-novel_writer}
       POSTGRES_USER: novel_writer

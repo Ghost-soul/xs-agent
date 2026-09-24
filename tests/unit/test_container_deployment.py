@@ -1,7 +1,7 @@
 import hashlib
 import json
-import zipfile
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI, Request
@@ -11,7 +11,7 @@ from deploy.configure import create_configuration
 from deploy.web import WebGateway
 from novel_writer.core.config import Settings
 from novel_writer.core.security import LocalSecurityMiddleware
-from scripts.package_docker import EXACT_FILES, package, source_files
+from scripts.prepare_docker_context import EXACT_FILES, prepare_context, source_files
 
 PASSWORD = "synthetic-browser-password-for-tests"
 INTERNAL = "synthetic-internal-token-for-tests"
@@ -142,7 +142,7 @@ def fixture_source(tmp_path):
     return root
 
 
-def test_source_package_cannot_include_private_data_or_test_material(tmp_path):
+def test_build_context_excludes_private_data_and_produces_no_archive(tmp_path):
     root = fixture_source(tmp_path)
     excluded = [".env", "data/content/novel.json", "data/credentials/key", "logs/request.log",
                 ".runtime/local-token", "backups/db.dump", "private/notes.md",
@@ -153,16 +153,19 @@ def test_source_package_cannot_include_private_data_or_test_material(tmp_path):
         file = root / name
         file.parent.mkdir(parents=True, exist_ok=True)
         file.write_text(canary)
-    result = package(root, tmp_path / "output")
-    with zipfile.ZipFile(result["archive"]) as archive:
-        assert not set(excluded).intersection(archive.namelist())
-        assert all(canary.encode() not in archive.read(name) for name in archive.namelist())
-        manifest = json.loads(archive.read("SOURCE-MANIFEST.json"))
-        for name, sha in manifest["files"].items():
-            assert hashlib.sha256(archive.read(name)).hexdigest() == sha
+    result = prepare_context(root, tmp_path / "output")
+    context = Path(result["context"])
+    assert list((tmp_path / "output").iterdir()) == [context]
+    files = {path.relative_to(context).as_posix(): path for path in context.rglob("*")
+             if path.is_file()}
+    assert not set(excluded).intersection(files)
+    assert all(canary.encode() not in path.read_bytes() for path in files.values())
+    manifest = json.loads((context / "SOURCE-MANIFEST.json").read_text(encoding="utf-8"))
+    for name, sha in manifest["files"].items():
+        assert hashlib.sha256(files[name].read_bytes()).hexdigest() == sha
 
 
-def test_hardcoded_secret_in_allowed_program_file_blocks_packaging(tmp_path):
+def test_hardcoded_secret_in_allowed_program_file_blocks_build_context(tmp_path):
     root = fixture_source(tmp_path)
     (root / "src/novel_writer/app.py").write_text("key='sk-" + "x" * 30 + "'")
     with pytest.raises(ValueError, match="疑似密钥"):
