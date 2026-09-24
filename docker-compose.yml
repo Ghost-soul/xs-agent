@@ -1,4 +1,4 @@
-# Server deployment. Development database: docker compose -f compose.dev.yaml.
+# GHCR deployment: place this file beside .env, then run docker compose up -d.
 name: ${NOVEL_WRITER_STACK:-novel-writer-server}
 
 x-logging: &logging
@@ -7,36 +7,42 @@ x-logging: &logging
     max-size: "10m"
     max-file: "3"
 
-x-application: &application
-  image: ${NOVEL_WRITER_IMAGE:-ghcr.io/ghost-soul/xs-agent:latest}
-  pull_policy: missing
-  init: true
-  logging: *logging
-  read_only: true
-  cap_drop: [ALL]
-  security_opt: [no-new-privileges:true]
-  tmpfs:
-    - /tmp:rw,nosuid,nodev,size=268435456,mode=1777
-  environment:
-    NOVEL_WRITER_PUBLIC_ORIGIN: ${NOVEL_WRITER_PUBLIC_ORIGIN:-http://localhost:8080}
-    NOVEL_WRITER_WEB_USER: ${NOVEL_WRITER_WEB_USER:-author}
-    NOVEL_WRITER_DATABASE_HOST: database
-    NOVEL_WRITER_DATABASE_NAME: ${NOVEL_WRITER_DATABASE_NAME:-novel_writer}
-    NOVEL_WRITER_DATABASE_USER: novel_writer
-    NOVEL_WRITER_GENERATION_SHUTDOWN_GRACE_SECONDS: ${NOVEL_WRITER_GENERATION_SHUTDOWN_GRACE_SECONDS:-300}
-  secrets:
-    - database_password
-    - web_password
-  volumes:
-    - application-data:/app/data
-    - application-logs:/app/logs
-  depends_on:
-    database:
-      condition: service_healthy
-
 services:
   app:
-    <<: *application
+    image: ${NOVEL_WRITER_IMAGE:-ghcr.io/ghost-soul/xs-agent:latest}
+    pull_policy: missing
+    init: true
+    logging: *logging
+    # Compose must write environment-backed secrets before starting the container.
+    # The image still runs as UID 10001 with root-owned application code.
+    read_only: false
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=268435456,mode=1777
+    environment:
+      NOVEL_WRITER_PUBLIC_ORIGIN: ${NOVEL_WRITER_PUBLIC_ORIGIN:-http://localhost:8080}
+      NOVEL_WRITER_WEB_USER: ${NOVEL_WRITER_WEB_USER:-author}
+      NOVEL_WRITER_DATABASE_HOST: database
+      NOVEL_WRITER_DATABASE_NAME: ${NOVEL_WRITER_DATABASE_NAME:-novel_writer}
+      NOVEL_WRITER_DATABASE_USER: novel_writer
+      NOVEL_WRITER_GENERATION_SHUTDOWN_GRACE_SECONDS: ${NOVEL_WRITER_GENERATION_SHUTDOWN_GRACE_SECONDS:-300}
+    secrets:
+      - database_password
+      - web_password
+    volumes:
+      - application-data:/app/data
+      - application-logs:/app/logs
+    depends_on:
+      database:
+        condition: service_healthy
+    # Run migrations on each container start, then hand signals to the web process.
+    # Uses commands already provided by the published GHCR image.
+    entrypoint: [/bin/sh, -ec]
+    command:
+      - |
+        python -B /app/deploy/entrypoint.py migrate
+        exec python -B /app/deploy/entrypoint.py serve
     ports:
       - "${NOVEL_WRITER_BIND:-127.0.0.1}:${NOVEL_WRITER_HTTP_PORT:-8080}:8000"
     restart: unless-stopped
@@ -47,13 +53,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-  migrate:
-    <<: *application
-    profiles: [maintenance]
-    command: [migrate]
-    restart: "no"
-    healthcheck:
-      disable: true
   database:
     image: pgvector/pgvector:0.8.0-pg17
     logging: *logging
@@ -79,6 +78,6 @@ volumes:
 
 secrets:
   database_password:
-    file: ${NOVEL_WRITER_SECRET_DIR:-./deploy/local/secrets}/database_password
+    environment: NOVEL_WRITER_DATABASE_PASSWORD
   web_password:
-    file: ${NOVEL_WRITER_SECRET_DIR:-./deploy/local/secrets}/web_password
+    environment: NOVEL_WRITER_WEB_PASSWORD

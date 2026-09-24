@@ -7,7 +7,6 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from deploy.configure import create_configuration
 from deploy.web import WebGateway
 from novel_writer.core.config import Settings
 from novel_writer.core.security import LocalSecurityMiddleware
@@ -106,28 +105,6 @@ def test_spa_refresh_and_static_traversal(web):
         assert response.status_code == 404 and "private-outside-web" not in response.text
 
 
-def test_configuration_uses_new_secrets_and_refuses_overwrite(tmp_path):
-    output = tmp_path / "local"
-    args = dict(origin="http://localhost:8080", port=8080, bind="127.0.0.1",
-                stack="isolation-test", database="novel_writer_test")
-    create_configuration(output, **args)
-    secrets = {p.name: p.read_bytes() for p in (output / "secrets").iterdir()}
-    assert len(set(secrets.values())) == 2 and all(len(value) > 32 for value in secrets.values())
-    configuration = (output / "deployment.env").read_bytes()
-    assert not any(value.strip() in configuration for value in secrets.values())
-    with pytest.raises(ValueError, match="拒绝覆盖"):
-        create_configuration(output, **args)
-    assert secrets == {p.name: p.read_bytes() for p in (output / "secrets").iterdir()}
-
-
-@pytest.mark.parametrize("origin", ["http://localhost:8080/path", "http://user:pw@host", "https://x#y"])
-def test_bad_origins_are_rejected_before_generating_secrets(tmp_path, origin):
-    with pytest.raises(ValueError):
-        create_configuration(tmp_path / "local", origin=origin, port=8080, bind="127.0.0.1",
-                             stack="test", database="novel_writer_test")
-    assert not (tmp_path / "local").exists()
-
-
 def fixture_source(tmp_path):
     root = tmp_path / "repository"
     for name in EXACT_FILES:
@@ -146,7 +123,7 @@ def test_build_context_excludes_private_data_and_produces_no_archive(tmp_path):
     root = fixture_source(tmp_path)
     excluded = [".env", "data/content/novel.json", "data/credentials/key", "logs/request.log",
                 ".runtime/local-token", "backups/db.dump", "private/notes.md",
-                "deploy/local/secrets/web_password", "frontend/.env.production",
+                "private/passwords", "frontend/.env.production",
                 "frontend/src/private.test.ts", "src/novel_writer/notes.txt"]
     canary = "PRIVATE-PACKAGING-CANARY-DO-NOT-INCLUDE"
     for name in excluded:

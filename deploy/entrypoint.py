@@ -19,7 +19,7 @@ from novel_writer.core.maintenance import storage_lease
 def read_secret(name: str) -> str:
     value = (Path("/run/secrets") / name).read_text(encoding="utf-8").strip()
     if len(value) < 24:
-        raise ValueError("部署凭据缺失或过短，请运行 configure.py")
+        raise ValueError("部署凭据缺失或过短，请在 .env 中设置至少 24 字符的密码")
     return value
 
 

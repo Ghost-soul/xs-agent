@@ -67,7 +67,7 @@ docs/private/
 .agents/
 .codex/
 
-# Server credentials and local Compose settings are generated after deployment.
+# Private deployment state must never be committed.
 deploy/local/
 
 # Private workstation collaboration and operational records.

@@ -6,8 +6,9 @@
 ## 密钥保存
 
 - API Key 通过工作台配置；Windows 使用 Credential Manager，Linux / Docker 使用私有持久文件（0600）。
-- 不要把真实密钥写入 `.env`、Provider Profile JSON、测试、日志、截图、Issue 或提交信息。
-- `.env.example` 只能保存空值和本地开发占位值。真实 `.env` 已被 `.gitignore` 排除。
+- 服务器 `.env` 保存数据库密码和网页登录密码，限制文件权限为 0600；Compose 将它们注入容器的 secrets 文件。
+- 模型 API Key 通过工作台保存，不写入 `.env`、Provider Profile JSON、测试、日志、截图、Issue 或提交信息。
+- `.env.example` 的密码必须为空。真实 `.env` 已被 `.gitignore` 排除，不得上传或分享。
 - `.runtime/local-token` 是启动时生成的本地令牌，也不得上传。
 
 ## 不应公开的内容
