@@ -105,6 +105,12 @@ async def preview_input(
     from novel_writer.generation.longform import prepared_reports
 
     reports = await prepared_reports(service, batch, action)
+    from novel_writer.generation import chief_context
+    from novel_writer.generation.knowledge_binding import bind_preparation_receipt, bind_role_state
+
+    if chief_context.uses_roles(proposed_spec):
+        await bind_role_state(service, batch, reports, action)
+    await bind_preparation_receipt(service, batch, action, reports)
     scope: dict[str, Any] = {}
     if action == "editor":
         from novel_writer.generation.stage import edit_scope
@@ -169,6 +175,7 @@ async def preview_input(
             }
         ),
         "previous_authorization_id": batch.state.get("input_authorization_id"),
+        "input_preparation_failure_id": batch.state.get("input_preparation_failure_id"),
         "candidate_sha256": candidate.sha256 if candidate else None,
         "unit_chain_sha256": reports["unit_chain_sha256"],
         "calls_sha256": fingerprint(

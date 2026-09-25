@@ -8,12 +8,12 @@ from novel_writer.services.style_profiles import (
 
 def test_grouped_library_retains_subject_ids_and_exposes_content_cards():
     cards = load_quality_cards()
-    assert len(cards) == 106
+    assert len(cards) == 107
     grouped = {
         layer: [c for c in cards if c["layer"] == layer]
         for layer in ("genre", "narrative")
     }
-    assert [len(grouped[k]) for k in grouped] == [15, 91]
+    assert [len(grouped[k]) for k in grouped] == [15, 92]
     rewritten_ids = {
         "lovecraftian",
         "political_career_power_struggle",
@@ -34,6 +34,7 @@ def test_grouped_library_retains_subject_ids_and_exposes_content_cards():
         "ensemble_tragedy_drama",
         "male_wish_fulfillment_romance",
         "dark_intrigue_human_nature",
+        "consensual_yuri_erotica",
     }
     removed_ids = {
         "detective_mystery_investigation",
@@ -72,7 +73,8 @@ def test_grouped_library_retains_subject_ids_and_exposes_content_cards():
     }
     for card in cards:
         expected_version = (
-            "5.1" if card["id"] in {
+            "1.0" if card["id"] == "consensual_yuri_erotica"
+            else "5.1" if card["id"] in {
                 "adult_extreme_mature", "forbidden_romance", "forced_noncon"
             }
             else "5.0" if card["id"] in {

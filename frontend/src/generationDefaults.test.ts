@@ -14,18 +14,18 @@ describe("automatic generation defaults", () => {
     const current = initialGenerationSpec(source, [provider], saved);
     expect(current.narrative_card_ids).toEqual([]);
     const preview = withCurrentTokenLimits(saved, current);
-    expect(preview).toMatchObject({ card_selection_policy: "separate-v1", focus_card_id: "world", narrative_card_ids: [], narrative_policy: "causal-v1", plan_policy: "bounded-v1" });
+    expect(preview).toMatchObject({ card_selection_policy: "separate-v1", focus_card_id: "world", narrative_card_ids: [], narrative_policy: "plot-led-v3", plan_policy: "bounded-v1" });
     expect(withCurrentTokenLimits(saved, { ...current, supporting_card_id: null, narrative_card_ids: [] })).toMatchObject({ supporting_card_id: null, narrative_card_ids: [] });
     expect(withCurrentTokenLimits(saved, { ...current, narrative_card_ids: ["unavailable-card"] }).narrative_card_ids).toEqual(["unavailable-card"]);
     expect(saved.card_selection_policy).toBe("legacy-v1");
   });
-  it("upgrades new previews and old form drafts without changing saved prompt bindings", () => {
-    const saved = { ...initialGenerationSpec(setup, [provider]), narrative_policy: "legacy-v1" as const, direction: "保留作者方向" };
+  it.each(["legacy-v1", "causal-v1", "plot-led-v2"] as const)("upgrades %s previews and form drafts without changing saved prompt bindings", (policy) => {
+    const saved = { ...initialGenerationSpec(setup, [provider]), narrative_policy: policy, direction: "保留作者方向" };
     const current = initialGenerationSpec(setup, [provider], saved, saved);
-    expect(current).toMatchObject({ narrative_policy: "causal-v1", direction: "保留作者方向" });
-    expect(previewSpec(saved).narrative_policy).toBe("causal-v1");
-    expect(withCurrentTokenLimits(saved, current).narrative_policy).toBe("causal-v1");
-    expect(saved.narrative_policy).toBe("legacy-v1");
+    expect(current).toMatchObject({ narrative_policy: "plot-led-v3", direction: "保留作者方向" });
+    expect(previewSpec(saved).narrative_policy).toBe("plot-led-v3");
+    expect(withCurrentTokenLimits(saved, current).narrative_policy).toBe("plot-led-v3");
+    expect(saved.narrative_policy).toBe(policy);
   });
   it("does not inherit narratives from project defaults, earlier stages or legacy browser drafts", () => {
     const cards = [
@@ -97,7 +97,7 @@ describe("automatic generation defaults", () => {
   it("upgrades only the input revision and retains already confirmed output choices", () => {
     const old = { ...generationFormDraft(initialGenerationSpec(setup, [provider])), input_defaults_revision: "input-100k-v1", input_limit: 100000, writer_output_limit: 48000, roles: { memory: { model: "writer", output_limit: 32000 } } };
     const value = initialGenerationSpec(setup, [provider], undefined, old);
-    expect(value).toMatchObject({ input_limit: 200000, context_policy: "world-bounded-v1", writer_output_limit: 48000, roles: { memory: { output_limit: 32000 } } });
+    expect(value).toMatchObject({ input_limit: 200000, context_policy: "chief-focus-v4", writer_output_limit: 48000, roles: { memory: { output_limit: 32000 } } });
     expect(old.input_limit).toBe(100000);
   });
   it("uses 200000 for new stages and old drafts without rewriting saved batches", () => {

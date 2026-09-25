@@ -16,6 +16,9 @@ export const LongformWorkspace = lazyWorkspace(async () => ({
 export const ModelWorkspace = lazyWorkspace(async () => ({
   default: (await import("./ModelWorkspace")).ModelWorkspace,
 }));
+export const PromptWorkspace = lazyWorkspace(async () => ({
+  default: (await import("./PromptWorkspace")).PromptWorkspace,
+}));
 export const ReaderView = lazyWorkspace(async () => ({
   default: (await import("./ReaderView")).ReaderView,
 }));
@@ -29,6 +32,7 @@ const workspaces = {
   data: DataWorkspace,
   longform: LongformWorkspace,
   models: ModelWorkspace,
+  prompts: PromptWorkspace,
   reader: ReaderView,
   style: StyleWorkspace,
 };

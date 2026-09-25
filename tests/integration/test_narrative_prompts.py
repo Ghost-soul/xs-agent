@@ -4,7 +4,8 @@ import json
 import pytest
 
 from novel_writer.generation.budget import input_tokens, request_preview
-from novel_writer.generation.narrative_prompts import contract_for, render_for
+from novel_writer.generation.event_units import render_for
+from novel_writer.generation.narrative_prompts import contract_for
 from novel_writer.generation.schemas import FrozenGenerationSpec
 from novel_writer.providers.base import ModelRequest
 from tests.integration.support import pytestmark as pytestmark
@@ -86,7 +87,7 @@ def test_new_amendment_uses_causal_prompts_without_upgrading_original_batch(feed
     })
     assert response.status_code == 200, response.text
     preview = response.json()
-    assert preview["request"]["narrative_policy"] == "causal-v1"
+    assert preview["request"]["narrative_policy"] == "plot-led-v3"
     assert len(control["calls"]) == before_calls
     assert preview["prompt_contract_sha256"] != draft["snapshot"]["prompt_contract_sha256"]
     approved = post(client, route + "/amendment-authorize", {
@@ -98,7 +99,12 @@ def test_new_amendment_uses_causal_prompts_without_upgrading_original_batch(feed
         "rewrite", "memory_amend", "checker_amend",
     ], done["state"]
     assert all(c["status"] == "completed" for c in done["calls"]), done["state"]
-    assert "改写" in control["requests"]["rewrite"]["plot_execution"]["current_task"]
+    assert control["requests"]["rewrite"]["task_mode"] == "rewrite"
+    assert (
+        control["requests"]["rewrite"]["revision_instruction"]
+        == "保留事件与结果，展开现场回应"
+    )
+    assert "plot_execution" not in control["requests"]["rewrite"]
     assert "reader_amend" not in control["requests"]
     for field in ("spec", "snapshot", "preview_sha256"):
         assert done[field] == batch[field]
@@ -114,7 +120,7 @@ def test_new_preview_counts_all_selected_card_text_and_blocks_before_dispatch(ge
     response = post(client, base, request)
     assert response.status_code == 200, response.text
     batch = response.json()
-    assert batch["spec"]["narrative_policy"] == "causal-v1"
+    assert batch["spec"]["narrative_policy"] == "plot-led-v3"
     assert batch["snapshot"]["blockers"]
     value = json.loads(render_for(
         FrozenGenerationSpec.model_validate(batch["spec"]), batch["snapshot"], "plan"

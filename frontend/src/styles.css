@@ -11,3 +11,15 @@
 .creative-card-detail { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
 .creative-card-detail > div { min-width: 0; overflow-wrap: anywhere; }
 @media (max-width: 760px) { .creative-card-detail { grid-template-columns: minmax(0, 1fr); } }
+.prompt-workspace label { display: grid; gap: .5rem; margin-block: 1rem; }
+.prompt-workspace textarea { width: 100%; resize: vertical; font-family: ui-monospace, monospace; line-height: 1.6; }
+.prompt-workspace select, .prompt-workspace input { max-width: 100%; }
+.prompt-placeholders { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: 1rem; }
+.prompt-save-feedback { margin-block: .75rem 1.5rem; padding: .5rem 1rem; border: 1px solid #cbd5e1; border-radius: .5rem; overflow-wrap: anywhere; }
+.prompt-save-feedback [role="alert"] { color: #9f2525; }
+.prompt-save-feedback li { margin-block: .5rem; }
+.prompt-save-feedback li button { margin-inline-start: .5rem; }
+.prompt-workspace pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 38rem; overflow: auto; padding: 1rem; line-height: 1.6; }
+.prompt-workspace details { margin-block: 1rem; }
+.prompt-diff ins { background: #dcfce7; color: #14532d; text-decoration: none; }
+.prompt-diff del { background: #fee2e2; color: #7f1d1d; }

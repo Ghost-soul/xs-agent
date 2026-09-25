@@ -1,3 +1,4 @@
+import { KnowledgePanel } from "./KnowledgePanel";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api, commandHeaders, jsonBody, type CharacterMindState, type Foreshadowing, type NarrativePhase, type OpenQuestion, type PlotHistoryDecision, type PlotThread, type ScheduledDevelopment, type StoryBlueprint, type StoryCharacter, type StoryForce, type WorldLoreEntry } from "./api";
@@ -124,6 +125,7 @@ export function BlueprintWorkspace({ projectId, onSaved, initialSection = "world
   const removeForce = (id: string) => setBlueprint({ ...blueprint, story_forces: blueprint.story_forces.filter((item) => item.id !== id) });
   const removeDevelopment = (id: string) => setBlueprint({ ...blueprint, scheduled_developments: blueprint.scheduled_developments.filter((item) => item.id !== id) });
   return <div className="blueprint-workspace">
+    <KnowledgePanel key={projectId} projectId={projectId} version={blueprint.version} />
     {draftConflict && <section className="dialog-backdrop" role="presentation"><section className="dialog" role="dialog" aria-modal="true" aria-label="本地草稿恢复"><h2>发现本地故事资料草稿</h2><p>后端资料已经变化。请选择恢复、查看差异或丢弃；系统不会自动覆盖当前正式资料。</p><div className="dialog-actions"><button type="button" onClick={() => setDraftConflict(null)}>查看差异</button><button type="button" className="danger-command" onClick={() => { void deleteLocalDraft(dirtyKey); setDraftConflict(null); }}>丢弃草稿</button><button type="button" className="primary-button" onClick={() => { if (!draftConflict) return; try { setBlueprint(JSON.parse(draftConflict.payload) as StoryBlueprint); setDraftConflict(null); } catch { setError("本地草稿格式无效"); } }}>恢复草稿</button></div></section></section>}
     <header className="blueprint-header"><div><span className="eyebrow">故事基础</span><h2>世界观、人物与故事大纲</h2></div><div className="blueprint-actions"><span>基于 v{blueprint.version}</span><button className="primary-button" disabled={busy} onClick={() => void save()}>保存手工调整</button></div></header>
     {error && <div className="error-banner" role="alert">{error}</div>}{notice && <p role="status">{notice}</p>}

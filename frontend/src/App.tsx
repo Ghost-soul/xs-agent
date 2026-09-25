@@ -45,7 +45,7 @@ import {
 
 import {
   BlueprintWorkspace, DataWorkspace, GenerationWorkspace, LongformWorkspace, ModelWorkspace,
-  ReaderView, StyleWorkspace,
+  ReaderView, StyleWorkspace, PromptWorkspace,
   preloadWorkspace,
 } from "./workspaceModules";
 
@@ -93,7 +93,7 @@ function AppContent() {
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(initialRoute.chapterId);
   const [versions, setVersions] = useState<VersionSummary[]>([]);
   const [viewMode, setViewModeState] = useState<ViewMode>(initialRoute.view as ViewMode);
-  const [advancedMode, setAdvancedMode] = useState(() => initialRoute.view === "models" || initialRoute.view === "style" || initialRoute.view === "versions");
+  const [advancedMode, setAdvancedMode] = useState(() => ["models", "style", "versions", "prompts"].includes(initialRoute.view));
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
   const [dirtySurfaces, setDirtySurfaces] = useState<DirtySurface[]>(() => getDirtySurfaces());
   const [dialog, setDialog] = useState<DialogState>(null);
@@ -761,6 +761,7 @@ function AppContent() {
             <button className={advancedMode ? "active" : ""} type="button" aria-expanded={advancedMode} onClick={() => setAdvancedMode((value) => !value)}>高级设置</button>
             {advancedMode && <div className="advanced-navigation" role="group" aria-label="高级工具">
               <button data-workspace="models" className={viewMode === "models" ? "active" : ""} aria-current={viewMode === "models" ? "page" : undefined} type="button" onClick={() => setViewMode("models")}>模型</button>
+              <button data-workspace="prompts" className={viewMode === "prompts" ? "active" : ""} aria-current={viewMode === "prompts" ? "page" : undefined} type="button" onClick={() => setViewMode("prompts")}>Prompt 模板</button>
               <button data-workspace="longform" className={viewMode === "longform" ? "active" : ""} aria-current={viewMode === "longform" ? "page" : undefined} type="button" onClick={() => setViewMode("longform")}>长篇脉络</button>
               <button data-workspace="style" className={viewMode === "style" ? "active" : ""} aria-current={viewMode === "style" ? "page" : undefined} type="button" onClick={() => setViewMode("style")}>质量偏好</button>
               <button className={viewMode === "versions" ? "active" : ""} aria-current={viewMode === "versions" ? "page" : undefined} type="button" onClick={() => setViewMode("versions")}>版本维护</button>
@@ -804,6 +805,8 @@ function AppContent() {
             }} />
           ) : viewMode === "models" ? (
             <ModelWorkspace />
+          ) : viewMode === "prompts" ? (
+            <PromptWorkspace key={selectedProject.project_id} projectId={selectedProject.project_id} />
           ) : viewMode === "blueprint" ? (
             <BlueprintWorkspace
               projectId={selectedProject.project_id}

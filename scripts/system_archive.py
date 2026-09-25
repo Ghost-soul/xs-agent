@@ -168,6 +168,8 @@ def _create_offline(args: argparse.Namespace, target: PostgresArchiveTarget) -> 
                 "provider-capability-audits": args.provider_capability_audits,
                 **({"tokenizers": args.content_root.resolve().parent / "tokenizers"}
                    if (args.content_root.resolve().parent / "tokenizers").is_dir() else {}),
+                **({"models": args.content_root.resolve().parent / "models"}
+                   if (args.content_root.resolve().parent / "models").is_dir() else {}),
             },
             repository_bundle=repository_bundle,
             lock_files={
@@ -277,6 +279,7 @@ def _classify_data_assets(args: argparse.Namespace) -> list[SystemArchiveExclusi
         (data_root / "lancedb").resolve(),
         (data_root / "temp").resolve(),
         (data_root / "tokenizers").resolve(),
+        (data_root / "models").resolve(),
         (data_root / "credentials").resolve(),
         (data_root / ".maintenance.lock").resolve(),
     }

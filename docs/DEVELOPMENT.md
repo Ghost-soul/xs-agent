@@ -11,7 +11,7 @@ Windows 可执行 `scripts/setup.ps1` 后运行 `scripts/start.ps1`。脚本使�
 Linux 安装依赖与静态验证示例：
 
 ```sh
-uv sync --frozen
+uv sync --frozen --extra rag
 pnpm --dir frontend install --frozen-lockfile
 uv run pytest tests/unit -m 'not integration'
 pnpm --dir frontend test
@@ -27,6 +27,6 @@ uv run python scripts/check-unused-modules.py
 
 公开快照包含当前源代码、测试、活动卡库、迁移及通用配置，不上传本机协作记忆、事故与运行报告、数据库内容或旧 Git 历史。公开版文档检查验证公开文件链接和迁移链，不依赖本机维护记录。
 
-仓库 Alembic head：`20260921_0047`
+仓库 Alembic head：`20260925_0048`
 
 提交前可运行 `scripts/check-public-snapshot.ps1` 检查禁止路径和常见密钥格式。不要向版本控制添加生成的服务器配置、API Key、小说或数据库备份。安全边界见 [安全说明](../SECURITY.md)。

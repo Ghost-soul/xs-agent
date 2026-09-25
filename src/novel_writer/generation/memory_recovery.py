@@ -156,6 +156,19 @@ async def preview_memory(
         raise WorkflowError("本次总预算须不低于原授权预算且不超过10000元")
     proposed_spec = with_output(spec, failed.action, proposed, all_roles=all_roles)
     reports = await prepared_reports(service, batch, failed.action)
+    from novel_writer.generation.template_binding import bind_reports
+
+    await bind_reports(service, batch, reports)
+    from novel_writer.generation import chief_context
+    from novel_writer.generation.knowledge_binding import bind_role_state
+
+    if chief_context.uses_roles(proposed_spec):
+        await bind_role_state(service, batch, reports, failed.action)
+    if "knowledge_retrieval" in failed.request:
+        from novel_writer.generation.knowledge_binding import bind_working_world
+
+        reports["knowledge_retrieval"] = failed.request["knowledge_retrieval"]
+        await bind_working_world(service, batch, reports)
     request, count, _, _ = prepare_request(
         proposed_spec,
         batch.snapshot,

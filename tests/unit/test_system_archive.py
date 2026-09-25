@@ -95,6 +95,11 @@ def test_system_archive_round_trip_requires_empty_restore_target(tmp_path, capsy
     reference_bytes = "第一章\r\n参考正文\r\n".encode("gb18030")
     (reference_corpora / "reference.txt").write_bytes(reference_bytes)
     v2_inputs["auxiliary_directories"] = {"reference-corpora": reference_corpora}
+    models = tmp_path / "models" / "knowledge"
+    models.mkdir(parents=True)
+    (models / "model_quantized.onnx").write_bytes(b"synthetic-onnx-asset")
+    (models / "manifest.json").write_text('{"model":"synthetic"}', encoding="utf-8")
+    v2_inputs["runtime_directories"]["models"] = models.parent
 
     created = SystemArchiveBuilder.create(
         output,
@@ -115,6 +120,9 @@ def test_system_archive_round_trip_requires_empty_restore_target(tmp_path, capsy
     assert inspected.effective_recovery_scope == "complete_system"
     assert (restored / "database.dump").read_bytes() == dump.read_bytes()
     assert (restored / "content" / "provider" / "abc.json").is_file()
+    assert (restored / "runtime-config" / "models" / "knowledge" / "model_quantized.onnx").read_bytes() == (
+        b"synthetic-onnx-asset"
+    )
     assert _long_path(
         restored / "content" / "run-safety" / ("a" * 36) / "manifests" / deep_name
     ).is_file()
@@ -326,6 +334,7 @@ def test_archive_classifies_reference_corpora_as_author_owned_input(tmp_path) ->
     audits.mkdir()
     calibration.mkdir()
     (data_root / "tokenizers").mkdir()
+    (data_root / "models").mkdir()
     (data_root / "credentials").mkdir()
     (data_root / "credentials" / "fixture.key").write_text("private synthetic value")
     (data_root / ".maintenance.lock").write_bytes(b"0")
@@ -347,6 +356,7 @@ def test_archive_classifies_reference_corpora_as_author_owned_input(tmp_path) ->
     assert any(item.path == "data/credentials" for item in exclusions)
     assert any(item.path == "data/.maintenance.lock" for item in exclusions)
     assert all(item.path != "data/tokenizers" for item in exclusions)
+    assert all(item.path != "data/models" for item in exclusions)
 
 
 def test_archive_rejects_unclassified_real_data_assets(tmp_path) -> None:
@@ -370,7 +380,7 @@ def test_archive_rejects_unclassified_real_data_assets(tmp_path) -> None:
 
 
 def test_repository_alembic_head_matches_current_migration_chain() -> None:
-    assert _repository_alembic_head(ROOT) == "20260921_0047"
+    assert _repository_alembic_head(ROOT) == "20260925_0048"
 
 
 def test_archive_revision_requires_repository_request_and_database_match(

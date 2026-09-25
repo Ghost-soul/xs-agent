@@ -234,7 +234,7 @@ export function GenerationWorkspace({ projectId, onAdopted }: { projectId: strin
     if (alive.current && ticket === selection.current) setBatch(value);
   }
   const canEdit = batch && !active && !["outcome_uncertain", "adopted", "archived"].includes(batch.status);
-  const configurationReady = setup?.configuration_revision === "author-intent-v1" && setup?.context_budget_revision === "world-bounded-v1" && setup?.output_budget_revision === "chief-output-v1" && setup?.automation_revision === "stage-auto-v1";
+  const configurationReady = setup?.configuration_revision === "author-intent-v1" && setup?.context_budget_revision === "chief-focus-v4" && setup?.output_budget_revision === "chief-output-v1" && setup?.automation_revision === "stage-auto-v1";
   const planRetry = batch?.plan_retry_preview as { chief_output_limit: number; auxiliary_output_limit: number; previous_output_limit: number; reason?: string } | null | undefined;
 
   if (!setup || !spec) return <section className="generation-workspace"><h2>阶段创作</h2><p role={error ? "alert" : "status"}>{error || "正在读取正式起点与作者资料…"}</p></section>;

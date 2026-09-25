@@ -41,10 +41,10 @@ def test_defaults_and_saved_amendment_policies_do_not_rebind_old_authorizations(
     spec, _, _ = fixture()
     data = spec.model_dump(mode="json")
     data.pop("narrative_policy")
-    assert NovelRunSpec.model_validate(data).narrative_policy == "causal-v1"
+    assert NovelRunSpec.model_validate(data).narrative_policy == "plot-led-v3"
     old = FrozenGenerationSpec.model_validate(data)
     assert old.narrative_policy == "legacy-v1"
-    assert AmendmentRequest.model_fields["narrative_policy"].default == "causal-v1"
+    assert AmendmentRequest.model_fields["narrative_policy"].default == "plot-led-v3"
     assert with_limits(old, {"max_cost_cny": "2"}).narrative_policy == "legacy-v1"
     upgraded = with_limits(old, {"max_cost_cny": "2", "narrative_policy": "causal-v1"})
     assert narrative_prompts.amendment_contract(upgraded) != (

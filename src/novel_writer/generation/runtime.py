@@ -34,7 +34,7 @@ from novel_writer.generation.content import (
 from novel_writer.generation.input_recovery import effective_spec
 from novel_writer.generation.memory_recovery import authorized_spec, recovery_slot
 from novel_writer.generation.novel import parser_for, role_for
-from novel_writer.generation.request_preparation import prepare_request
+from novel_writer.generation.request_preparation import InputCapacityError, prepare_request
 from novel_writer.generation.response_journal import ResponseJournal
 from novel_writer.generation.schemas import (
     LONGFORM_REVISION,
@@ -541,16 +541,53 @@ class GenerationRuntime:
                 assert amendment is not None
                 scope = amendment.payload["request"]
             reports["edit_scope"] = scope
-            request, count, counting, omitted_history = prepare_request(
+            from novel_writer.generation.knowledge_binding import bind_request
+
+            await bind_request(
+                service,
+                batch,
                 spec,
-                batch.snapshot,
                 action,
                 plan.payload if plan else None,
                 reports.get("input_body", candidate.payload["body"] if candidate else None),
-                author_note.payload["note"] if author_note else None,
                 reports,
-                scope,
+                author_note.payload["note"] if author_note else None,
             )
+            try:
+                request, count, counting, omitted_history = await asyncio.to_thread(
+                    prepare_request,
+                    spec,
+                    batch.snapshot,
+                    action,
+                    plan.payload if plan else None,
+                    reports.get("input_body", candidate.payload["body"] if candidate else None),
+                    author_note.payload["note"] if author_note else None,
+                    reports,
+                    scope,
+                )
+            except InputCapacityError as error:
+                # This transaction has not claimed a call. Keep the exact unused action,
+                # evidence and lookup so an explicit budget preview can resume safely.
+                await service.append(
+                    batch,
+                    "input_preparation_failure",
+                    {
+                        "action": action,
+                        "not_dispatched": True,
+                        "message": str(error),
+                        "batch_preview_sha256": batch.preview_sha256,
+                        "plan_sha256": plan.sha256 if plan else None,
+                        "candidate_sha256": candidate.sha256 if candidate else None,
+                        "author_note_sha256": author_note.sha256 if author_note else None,
+                        "unit_chain_sha256": reports.get("unit_chain_sha256"),
+                        "model_request": error.request.model_dump(mode="json"),
+                        "knowledge_retrieval": reports.get("knowledge_retrieval"),
+                        "key_context_selection": reports.get("key_context_selection"),
+                    },
+                )
+                batch.status = "needs_attention"
+                batch.state = {**batch.state, "message": f"本次尚未发送模型请求：{error}"}
+                return None
             call = GenerationCallRecord(
                 project_id=batch.project_id,
                 batch_id=batch.id,
@@ -580,6 +617,19 @@ class GenerationRuntime:
                     "effective_input_limit": spec.input_limit,
                     "amendment_authorized_sha256": batch.state.get("amendment_authorized_sha256"),
                     "edit_scope": scope,
+                    **{key: reports[key] for key in (
+                        "prompt_template_source", "prompt_template_revision",
+                    ) if key in reports},
+                    **(
+                        {"knowledge_retrieval": reports["knowledge_retrieval"]}
+                        if "knowledge_retrieval" in reports
+                        else {}
+                    ),
+                    **(
+                        {"key_context_selection": reports["key_context_selection"]}
+                        if "key_context_selection" in reports
+                        else {}
+                    ),
                     "input_tokens": count,
                     "counting": counting,
                     "batch_preview_sha256": batch.preview_sha256,

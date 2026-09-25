@@ -1,0 +1,98 @@
+[
+  {
+    "policy": "full-v1",
+    "contract": "b91b846f661eb0eed8364161beeb571aae1908395cff4ebf04a9ee5211993948",
+    "renders": {
+      "plan": "87897a5e9040c8b968ab28ff4d8f37893b4615a8cd474c67a4a23ab4669687e2",
+      "write:1": "d7dfad795a4a38c9ae2283de96ab2dceea16038fc45059704e1a772402377a54",
+      "memory:1": "520e4afe509ad58c0f52b3661dcc6d484979157083e7e4b0a4996fac3e440de7",
+      "checker": "52419c5770d57236932f952972a284a40d680a5b2b22482b2089c215afc1f901",
+      "amend": "210ad92602707070eec1dad97de09401d4b577eb5ad47fa1620ff5d7efb8663b",
+      "rewrite": "68a00477645e8006352c3a958889800a6d600e176ac3d17f40b2d3c6d10033a2",
+      "memory_amend": "fbbba6cb1e10d7964f8e979913a39e125180b164afcd71a58a2f2303f7b8df3c",
+      "checker_amend": "52419c5770d57236932f952972a284a40d680a5b2b22482b2089c215afc1f901",
+      "reader": "0848d447e6634b5ef42c1cd4d168ce219bdce80a5d2cc64f1b3e2ab7db48d3c4",
+      "title": "0325a10f379f26dc85075c9824c67a59585c6c10b72bf586f7d0a5f79b9d6c23"
+    }
+  },
+  {
+    "policy": "bounded-v1",
+    "contract": "bee3c966199434584fed022e70cdc3112fdbca2749119fa8e039afbdc3f669f0",
+    "renders": {
+      "plan": "87897a5e9040c8b968ab28ff4d8f37893b4615a8cd474c67a4a23ab4669687e2",
+      "write:1": "d7dfad795a4a38c9ae2283de96ab2dceea16038fc45059704e1a772402377a54",
+      "memory:1": "520e4afe509ad58c0f52b3661dcc6d484979157083e7e4b0a4996fac3e440de7",
+      "checker": "52419c5770d57236932f952972a284a40d680a5b2b22482b2089c215afc1f901",
+      "amend": "210ad92602707070eec1dad97de09401d4b577eb5ad47fa1620ff5d7efb8663b",
+      "rewrite": "68a00477645e8006352c3a958889800a6d600e176ac3d17f40b2d3c6d10033a2",
+      "memory_amend": "fbbba6cb1e10d7964f8e979913a39e125180b164afcd71a58a2f2303f7b8df3c",
+      "checker_amend": "52419c5770d57236932f952972a284a40d680a5b2b22482b2089c215afc1f901",
+      "reader": "0848d447e6634b5ef42c1cd4d168ce219bdce80a5d2cc64f1b3e2ab7db48d3c4",
+      "title": "0325a10f379f26dc85075c9824c67a59585c6c10b72bf586f7d0a5f79b9d6c23"
+    }
+  },
+  {
+    "policy": "focused-v1",
+    "contract": "9acd057b702cb3c3b4a893b0e9ff6b534afd2fd8ff0507b05206bd5d3fbe0770",
+    "renders": {
+      "plan": "b39e0975b765d27a413074e3a94c78162c3537f514afc07a6e28d7e94dac6095",
+      "write:1": "9332ab6a00bae69f2c53db4560cdc58d84dbd4178300446c25f2dd27a4acd80d",
+      "memory:1": "873819914d64a79c2d1b66c9f75d8240fc55f022b726aa06daf725fbedb47926",
+      "checker": "ce0baff9f002f5f5aa745cf4fe20cdda074d284a5b82af8b1163a8e4f82bc5ed",
+      "amend": "210ad92602707070eec1dad97de09401d4b577eb5ad47fa1620ff5d7efb8663b",
+      "rewrite": "cba7d6a2d848adf61b3489ddf5b91ef03f004d007c704fbf723ee8267272339b",
+      "memory_amend": "ccc784ebc01caed71c81c1a053d27eda276faa340a9b194b6e949bfcd09e67d9",
+      "checker_amend": "ce0baff9f002f5f5aa745cf4fe20cdda074d284a5b82af8b1163a8e4f82bc5ed",
+      "reader": "0848d447e6634b5ef42c1cd4d168ce219bdce80a5d2cc64f1b3e2ab7db48d3c4",
+      "title": "0325a10f379f26dc85075c9824c67a59585c6c10b72bf586f7d0a5f79b9d6c23"
+    }
+  },
+  {
+    "policy": "world-bounded-v1",
+    "contract": "ae6f969b76e636285e5abeb8c1a41bf83206d0c6f91b493eaa2cfd1d8f5922e4",
+    "renders": {
+      "plan": "78994c236f8f5f12beabdc33b18793566a58204369679ffc802dda62738cb031",
+      "write:1": "77cc997caf64454abe9886d2c081efd177afab826f107a4ee9a333f77cb96f06",
+      "memory:1": "7bc65d5740d17742917b7b2f58bda1908b38a2a1ab5ccfa9a0ee71c0fb47dc9f",
+      "checker": "e24290504323a5246b2b5666dc9b2b121e92f26c48446099622905e0153674a4",
+      "amend": "210ad92602707070eec1dad97de09401d4b577eb5ad47fa1620ff5d7efb8663b",
+      "rewrite": "c18b50dfbcd3bec7d16d1e5603c79d84762e982aa149d30c32dc32ff131c2cf4",
+      "memory_amend": "cf050ded190f52fc4c5f9f2dd52d67b9403c0a6076ce7dc93d6ca70d7517f598",
+      "checker_amend": "e24290504323a5246b2b5666dc9b2b121e92f26c48446099622905e0153674a4",
+      "reader": "0848d447e6634b5ef42c1cd4d168ce219bdce80a5d2cc64f1b3e2ab7db48d3c4",
+      "title": "0325a10f379f26dc85075c9824c67a59585c6c10b72bf586f7d0a5f79b9d6c23"
+    }
+  },
+  {
+    "policy": "knowledge-rag-v1",
+    "contract": "061df090a9d7704b40ee1a4792bde65f9b5af98bfe9febfac2af0c4f768beeb8",
+    "renders": {
+      "plan": "56684f585af7b2eef44cda458dc2563f8032391f20d47d39674d05cbe834e9d5",
+      "write:1": "86f3a12219bf590b369b80cd51d9aaaf6d6687ba774a47c21a96b5b81d4bf125",
+      "memory:1": "7ec77dc5f31a4850759f43046464c52b7d3debb6cb4aa3b3fd79710c4daa681a",
+      "checker": "ee4d18c152820b8c10a0552e6fcbaf5dd31a4397189a1f7b3d8fa259e93254d4",
+      "amend": "c8043dbf86e152315a98d30e46173b76e2d79edff2759727d5a4137daaea958c",
+      "rewrite": "292700bc556ed55262205226e24ffdb6871d5b4267d9e7a82beab5126ac023dc",
+      "memory_amend": "54b8419f776331c4f54e62d199709b2eac595079e3cac82290a456f6d3ee77f9",
+      "checker_amend": "ee4d18c152820b8c10a0552e6fcbaf5dd31a4397189a1f7b3d8fa259e93254d4",
+      "reader": "0848d447e6634b5ef42c1cd4d168ce219bdce80a5d2cc64f1b3e2ab7db48d3c4",
+      "title": "0325a10f379f26dc85075c9824c67a59585c6c10b72bf586f7d0a5f79b9d6c23"
+    }
+  },
+  {
+    "policy": "role-rag-v2",
+    "contract": "d5b945ec7a9c2e3d852755e4f43ee4138e265ba972ac30c79398bbf9867cd63b",
+    "renders": {
+      "plan": "980e4692aceaf3585ce275e926bf6dee5b06cdd40b9da8248a2250faa350ad18",
+      "write:1": "ad291f1b420f2c850dc239e55405696441147be35ed3d7ca56f306ae7c5e0138",
+      "memory:1": "2c5a818bf5158ec17e9daf5b77f2597aa7a856368e2e23c6b76ecd415aadcfd7",
+      "checker": "d7fa86ad81443fca60f7717d36ab62913e11bc69b11931331307c394492ffd59",
+      "amend": "51fb6404983174244269aa1a96c4f6d2631a44b4db7714b647309e3eb45e4e76",
+      "rewrite": "69776cc2639f551a27dbef2c529ab48b60e719cb38d20b364a7bda6e2db9891b",
+      "memory_amend": "2c5a818bf5158ec17e9daf5b77f2597aa7a856368e2e23c6b76ecd415aadcfd7",
+      "checker_amend": "d7fa86ad81443fca60f7717d36ab62913e11bc69b11931331307c394492ffd59",
+      "reader": "0848d447e6634b5ef42c1cd4d168ce219bdce80a5d2cc64f1b3e2ab7db48d3c4",
+      "title": "0325a10f379f26dc85075c9824c67a59585c6c10b72bf586f7d0a5f79b9d6c23"
+    }
+  }
+]

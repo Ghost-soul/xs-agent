@@ -28,6 +28,20 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 beforeEach(() => { vi.clearAllMocks(); vi.mocked(api).mockResolvedValue(receipt); });
 
 describe("original agent call records", () => {
+  it("shows saved selection counts without treating bytes as model tokens", async () => {
+    vi.mocked(api).mockResolvedValue({ ...receipt, request: { ...receipt.request,
+      key_context_selection: { policy: "role-key-v3", material_count: 15000,
+        soft_target: 12000, source_count: 400, selected_count: 12, omitted_count: 388,
+        counting_method: "utf8-byte-upper-bound", required_above_target: true },
+    } });
+    show(); open();
+    await screen.findByText("本次背景资料选取");
+    expect(screen.getByText(/从 400 条故事资料中选入 12 条/)).toBeInTheDocument();
+    expect(screen.getByText(/UTF-8 字节（保守上界，非实际 tokens）/)).toBeInTheDocument();
+    expect(screen.getByText(/必要资料超过精简目标/)).toBeInTheDocument();
+    expect(api).toHaveBeenCalledOnce();
+  });
+
   it("shows the actual input and output together and can copy either without writes", async () => {
     show(); open("write:1");
     expect((await screen.findByLabelText("系统 Prompt", { selector: "pre" })).textContent).toBe(receipt.request.model_request.system_prompt);

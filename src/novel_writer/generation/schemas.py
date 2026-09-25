@@ -29,13 +29,22 @@ class RoleModel(StrictModel):
 
 class GenerationSpec(StrictModel):
     workflow: Literal["single-chapter-v1", "novel-run-v1"] = "single-chapter-v1"
-    context_policy: Literal["full-v1", "bounded-v1", "focused-v1", "world-bounded-v1"] = "full-v1"
+    context_policy: Literal[
+        "full-v1",
+        "bounded-v1",
+        "focused-v1",
+        "world-bounded-v1",
+        "knowledge-rag-v1",
+        "role-rag-v2",
+        "role-key-v3",
+        "chief-focus-v4",
+    ] = "full-v1"
     automation_policy: Literal["legacy-v1", "stage-auto-v1"] = "legacy-v1"
     feedback_policy: Literal["legacy-v1", "advisory-v1", "logic-v1"] = "legacy-v1"
     writing_policy: Literal["legacy-v1", "creative-v1", "background-v1", "guided-v1"] = "legacy-v1"
     card_selection_policy: Literal["legacy-v1", "separate-v1"] = "legacy-v1"
     narrative_card_ids: list[str] = Field(default_factory=list)
-    narrative_policy: Literal["legacy-v1", "causal-v1"] = "legacy-v1"
+    narrative_policy: Literal["legacy-v1", "causal-v1", "plot-led-v2", "plot-led-v3"] = "legacy-v1"
     plan_policy: Literal["exact-v1", "bounded-v1"] = "exact-v1"
     length_policy: Literal["legacy-v1", "unit-v1"] = "legacy-v1"
     enable_checker: bool = True
@@ -155,7 +164,7 @@ class NovelRunSpec(GenerationSpec):
 
     @model_validator(mode="before")
     @classmethod
-    def historical_length_defaults(cls, value):
+    def historical_length_defaults(cls, value: Any) -> Any:
         if isinstance(value, dict) and value.get("length_policy") == "legacy-v1":
             return {"chapter_count": 1, "target_characters": 4000, **value}
         return value
@@ -163,12 +172,21 @@ class NovelRunSpec(GenerationSpec):
     plan_policy: Literal["exact-v1", "bounded-v1"] = "bounded-v1"
     workflow: Literal["single-chapter-v1", "novel-run-v1"] = "novel-run-v1"
     card_selection_policy: Literal["legacy-v1", "separate-v1"] = "separate-v1"
-    narrative_policy: Literal["legacy-v1", "causal-v1"] = "causal-v1"
+    narrative_policy: Literal["legacy-v1", "causal-v1", "plot-led-v2", "plot-led-v3"] = (
+        "plot-led-v3"
+    )
     feedback_policy: Literal["legacy-v1", "advisory-v1", "logic-v1"] = "logic-v1"
     writing_policy: Literal["legacy-v1", "creative-v1", "background-v1", "guided-v1"] = "guided-v1"
     context_policy: Literal[
-        "full-v1", "bounded-v1", "focused-v1", "world-bounded-v1"
-    ] = "world-bounded-v1"
+        "full-v1",
+        "bounded-v1",
+        "focused-v1",
+        "world-bounded-v1",
+        "knowledge-rag-v1",
+        "role-rag-v2",
+        "role-key-v3",
+        "chief-focus-v4",
+    ] = "chief-focus-v4"
     automation_policy: Literal["legacy-v1", "stage-auto-v1"] = "stage-auto-v1"
     relationship_scope: Literal[
         "genre-led", "explore", "specified_pair", "non_romantic", "not_applicable"
@@ -402,10 +420,19 @@ class ResolveUnknown(StrictModel):
 
 class AmendmentRequest(StrictModel):
     length_policy: Literal["legacy-v1", "unit-v1"] = "unit-v1"
-    narrative_policy: Literal["legacy-v1", "causal-v1"] = "causal-v1"
+    narrative_policy: Literal["legacy-v1", "causal-v1", "plot-led-v2", "plot-led-v3"] = (
+        "plot-led-v3"
+    )
     context_policy: Literal[
-        "full-v1", "bounded-v1", "focused-v1", "world-bounded-v1"
-    ] = "world-bounded-v1"
+        "full-v1",
+        "bounded-v1",
+        "focused-v1",
+        "world-bounded-v1",
+        "knowledge-rag-v1",
+        "role-rag-v2",
+        "role-key-v3",
+        "chief-focus-v4",
+    ] = "chief-focus-v4"
     candidate_sha256: str = Field(min_length=64, max_length=64)
     mode: Literal["local", "rewrite", "verify"]
     instruction: str = Field(min_length=1, max_length=2000)

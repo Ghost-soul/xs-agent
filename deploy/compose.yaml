@@ -1,0 +1,75 @@
+name: ${NOVEL_WRITER_STACK:-novel-writer-server}
+
+x-application: &application
+  image: novel-writer:${NOVEL_WRITER_IMAGE_TAG:-2026.09.24}
+  build:
+    context: ..
+    dockerfile: Dockerfile
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs:
+    - /tmp:rw,nosuid,nodev,size=268435456,mode=1777
+  environment:
+    NOVEL_WRITER_PUBLIC_ORIGIN: ${NOVEL_WRITER_PUBLIC_ORIGIN:-http://localhost:8080}
+    NOVEL_WRITER_WEB_USER: ${NOVEL_WRITER_WEB_USER:-author}
+    NOVEL_WRITER_DATABASE_HOST: database
+    NOVEL_WRITER_DATABASE_NAME: ${NOVEL_WRITER_DATABASE_NAME:-novel_writer}
+    NOVEL_WRITER_DATABASE_USER: novel_writer
+    NOVEL_WRITER_GENERATION_SHUTDOWN_GRACE_SECONDS: ${NOVEL_WRITER_GENERATION_SHUTDOWN_GRACE_SECONDS:-300}
+  secrets:
+    - database_password
+    - web_password
+  volumes:
+    - application-data:/app/data
+    - application-logs:/app/logs
+  depends_on:
+    database:
+      condition: service_healthy
+
+services:
+  app:
+    <<: *application
+    ports:
+      - "${NOVEL_WRITER_BIND:-127.0.0.1}:${NOVEL_WRITER_HTTP_PORT:-8080}:8000"
+    restart: unless-stopped
+    stop_grace_period: ${NOVEL_WRITER_STOP_GRACE_PERIOD:-360s}
+    healthcheck:
+      test: [CMD, python, -B, /app/deploy/healthcheck.py]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+  migrate:
+    <<: *application
+    profiles: [maintenance]
+    command: [migrate]
+    restart: "no"
+  database:
+    image: pgvector/pgvector:0.8.0-pg17
+    environment:
+      POSTGRES_DB: ${NOVEL_WRITER_DATABASE_NAME:-novel_writer}
+      POSTGRES_USER: novel_writer
+      POSTGRES_PASSWORD_FILE: /run/secrets/database_password
+    secrets:
+      - database_password
+    volumes:
+      - database-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U novel_writer -d \"$$POSTGRES_DB\""]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+volumes:
+  application-data:
+  application-logs:
+  database-data:
+
+secrets:
+  database_password:
+    file: ${NOVEL_WRITER_SECRET_DIR:-./local/secrets}/database_password
+  web_password:
+    file: ${NOVEL_WRITER_SECRET_DIR:-./local/secrets}/web_password

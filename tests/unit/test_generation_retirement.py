@@ -59,7 +59,10 @@ def test_retired_generators_are_absent_from_api_and_import_graph(tmp_path: Path)
 
 def test_startup_ignores_old_generation_worker_environment(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("NOVEL_WRITER_RUN_TO_REVIEW_WORKER_ENABLED", "true")
-    settings = Settings(local_task_worker_enabled=False, log_dir=tmp_path, _env_file=None)
+    settings = Settings(
+        local_task_worker_enabled=False, log_dir=tmp_path,
+        content_store_root=tmp_path / "content", _env_file=None,
+    )
     app = create_app(settings)
     # A deliberately unreachable database proves startup does not run generation recovery,
     # checkpoint migrations, or queue scans. Health can separately report DB availability.

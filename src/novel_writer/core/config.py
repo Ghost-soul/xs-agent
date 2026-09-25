@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     project_workspace_root: Path = Path("data/projects")
     local_task_worker_enabled: bool = True
     local_task_poll_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
+    knowledge_model_root: Path = Path("data/models/knowledge")
+    knowledge_worker_enabled: bool = True
+    knowledge_poll_seconds: float = Field(default=5.0, ge=1.0, le=60.0)
     system_recovery_drill_certificate: Path = Path("data/system-recovery-drill.json")
     release_seal_receipt: Path = Path("data/release-seal-receipt.json")
     build_commit: str | None = None

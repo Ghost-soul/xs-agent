@@ -137,6 +137,7 @@ def request_for(
                 or (
                     role_for(action) == "writer"
                     and spec.writing_policy in {"creative-v1", "background-v1", "guided-v1"}
+                    and spec.narrative_policy != "plot-led-v3"
                 )
                 or (
                     role_for(action) == "checker"

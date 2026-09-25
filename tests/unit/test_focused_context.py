@@ -170,7 +170,7 @@ def test_200k_input_defaults_limits_and_capacity_still_respect_model_window():
     data.pop("input_limit")
     data.pop("context_policy")
     assert NovelRunSpec.model_validate(data).input_limit == 200000
-    assert NovelRunSpec.model_validate(data).context_policy == "world-bounded-v1"
+    assert NovelRunSpec.model_validate(data).context_policy == "chief-focus-v4"
     assert FrozenGenerationSpec.model_validate(data).input_limit == 100000
     assert AmendmentRequest.model_fields["input_limit"].default == 200000
     with pytest.raises(ValidationError):

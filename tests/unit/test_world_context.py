@@ -78,7 +78,7 @@ def test_unrelated_high_risk_library_growth_does_not_expand_the_world_packet(cou
     snapshot["context"]["world_lore"] += [
         {
             "id": f"remote-{n:04}",
-            "name": f"远疆档案{n:04}",
+            "name": f"远疆档案编号x{n:04}",
             "summary": "遥远沙漠历史",
             "risk_level": "high",
             "category": "core_secret",
@@ -204,8 +204,8 @@ def test_old_contracts_and_rendered_requests_remain_exact(policy):
 
 
 def test_new_defaults_do_not_upgrade_frozen_specs_and_reader_and_editor_remain_scoped():
-    assert NovelRunSpec.model_fields["context_policy"].default == world_context.POLICY
-    assert AmendmentRequest.model_fields["context_policy"].default == world_context.POLICY
+    assert NovelRunSpec.model_fields["context_policy"].default == "chief-focus-v4"
+    assert AmendmentRequest.model_fields["context_policy"].default == "chief-focus-v4"
     assert FrozenGenerationSpec.model_fields["context_policy"].default == "full-v1"
     spec, snapshot, plan = setup()
     for action in ["reader", "amend", "title"]:

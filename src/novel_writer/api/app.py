@@ -10,11 +10,13 @@ from novel_writer import __version__
 from novel_writer.api.errors import register_error_handlers
 from novel_writer.api.routes.generation import router as generation_router
 from novel_writer.api.routes.health import router as health_router
+from novel_writer.api.routes.knowledge import router as knowledge_router
 from novel_writer.api.routes.local_tasks import router as local_tasks_router
 from novel_writer.api.routes.longform import router as longform_router
 from novel_writer.api.routes.management import router as management_router
 from novel_writer.api.routes.portability import router as portability_router
 from novel_writer.api.routes.project_deletion import router as project_deletion_router
+from novel_writer.api.routes.prompt_templates import router as prompt_templates_router
 from novel_writer.api.routes.provider_profiles import router as provider_profiles_router
 from novel_writer.api.routes.reference_styles import router as reference_styles_router
 from novel_writer.api.routes.styles import router as styles_router
@@ -27,6 +29,7 @@ from novel_writer.core.request_limits import RequestBodyLimitMiddleware
 from novel_writer.core.security import LocalSecurityMiddleware
 from novel_writer.db.engine import Database
 from novel_writer.generation.runtime import GenerationRuntime
+from novel_writer.knowledge.worker import KnowledgeWorker
 from novel_writer.services.local_tasks import LocalTaskRunner
 from novel_writer.services.provider_profiles import ProviderProfileStore
 
@@ -51,6 +54,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             log_file=str(resolved_settings.log_dir / "system.log"),
         )
         app.state.database = Database(resolved_settings.database_url)
+        app.state.database.session_factory.configure(
+            info={"knowledge_model_root": resolved_settings.knowledge_model_root},
+        )
         app.state.generation = GenerationRuntime(
             app.state.database,
             app.state.provider_profile_store,
@@ -60,6 +66,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             shutdown_grace_seconds=resolved_settings.generation_shutdown_grace_seconds,
         )
         await app.state.generation.initialize()
+        knowledge_stop = asyncio.Event()
+        knowledge_worker = None
+        if (
+            resolved_settings.knowledge_worker_enabled
+            and resolved_settings.local_task_worker_enabled
+        ):
+            knowledge_worker = asyncio.create_task(KnowledgeWorker(
+                app.state.database, resolved_settings.knowledge_model_root,
+            ).run(knowledge_stop, resolved_settings.knowledge_poll_seconds))
         local_task_stop: asyncio.Event | None = None
         local_task_worker: asyncio.Task[None] | None = None
         if resolved_settings.local_task_worker_enabled:
@@ -84,7 +99,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
             if local_task_stop is not None:
                 local_task_stop.set()
+            knowledge_stop.set()
             await app.state.generation.close()
+            if knowledge_worker is not None:
+                try:
+                    await asyncio.wait_for(knowledge_worker, timeout=max(
+                        0.1, deadline - asyncio.get_running_loop().time(),
+                    ))
+                except TimeoutError:
+                    logger.warning("knowledge.indexing_stopped_before_commit")
             if local_task_worker is not None:
                 try:
                     await asyncio.wait_for(
@@ -136,9 +159,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(generation_router)
     app.include_router(longform_router)
     app.include_router(local_tasks_router)
+    app.include_router(knowledge_router)
     app.include_router(portability_router)
     app.include_router(project_deletion_router)
     app.include_router(provider_profiles_router)
+    app.include_router(prompt_templates_router)
     app.include_router(reference_styles_router)
     app.include_router(styles_router)
     app.include_router(workflow_router)

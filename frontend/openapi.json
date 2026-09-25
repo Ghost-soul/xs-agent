@@ -2790,6 +2790,230 @@
         }
       }
     },
+    "/api/projects/{project_id}/knowledge": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Status",
+        "operationId": "status_api_projects__project_id__knowledge_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Status Api Projects  Project Id  Knowledge Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{project_id}/knowledge/search": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Search",
+        "operationId": "search_api_projects__project_id__knowledge_search_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Search Api Projects  Project Id  Knowledge Search Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{project_id}/knowledge/state": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "State",
+        "operationId": "state_api_projects__project_id__knowledge_state_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "version_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version Id"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response State Api Projects  Project Id  Knowledge State Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{project_id}/knowledge/rebuild": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Rebuild",
+        "operationId": "rebuild_api_projects__project_id__knowledge_rebuild_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Rebuild Api Projects  Project Id  Knowledge Rebuild Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/imports/preview": {
       "post": {
         "tags": [
@@ -3922,6 +4146,196 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Verify Provider Capability Api Provider Profiles  Profile Id  Capability Verification Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prompt-templates": {
+      "get": {
+        "tags": [
+          "prompt-templates"
+        ],
+        "summary": "Get Templates",
+        "operationId": "get_templates_api_prompt_templates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Templates Api Prompt Templates Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prompt-templates/{variant}": {
+      "put": {
+        "tags": [
+          "prompt-templates"
+        ],
+        "summary": "Save Template",
+        "operationId": "save_template_api_prompt_templates__variant__put",
+        "parameters": [
+          {
+            "name": "variant",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "chief",
+                "writer",
+                "rewrite",
+                "memory",
+                "checker",
+                "editor",
+                "title"
+              ],
+              "type": "string",
+              "title": "Variant"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveTemplate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Save Template Api Prompt Templates  Variant  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prompt-templates/versions/{revision}/{variant}": {
+      "get": {
+        "tags": [
+          "prompt-templates"
+        ],
+        "summary": "Get Version",
+        "operationId": "get_version_api_prompt_templates_versions__revision___variant__get",
+        "parameters": [
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Revision"
+            }
+          },
+          {
+            "name": "variant",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "chief",
+                "writer",
+                "rewrite",
+                "memory",
+                "checker",
+                "editor",
+                "title"
+              ],
+              "type": "string",
+              "title": "Variant"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Version Api Prompt Templates Versions  Revision   Variant  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prompt-templates/preview": {
+      "post": {
+        "tags": [
+          "prompt-templates"
+        ],
+        "summary": "Preview Template",
+        "operationId": "preview_template_api_prompt_templates_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewTemplate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptPreview"
                 }
               }
             }
@@ -8190,7 +8604,11 @@
               "full-v1",
               "bounded-v1",
               "focused-v1",
-              "world-bounded-v1"
+              "world-bounded-v1",
+              "knowledge-rag-v1",
+              "role-rag-v2",
+              "role-key-v3",
+              "chief-focus-v4"
             ],
             "title": "Context Policy",
             "default": "full-v1"
@@ -8245,7 +8663,9 @@
             "type": "string",
             "enum": [
               "legacy-v1",
-              "causal-v1"
+              "causal-v1",
+              "plot-led-v2",
+              "plot-led-v3"
             ],
             "title": "Narrative Policy",
             "default": "legacy-v1"
@@ -9164,6 +9584,45 @@
         ],
         "title": "InternalConflict"
       },
+      "KnowledgeQuery": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 900,
+            "minLength": 1,
+            "title": "Query"
+          },
+          "version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Id"
+          },
+          "through_chapter": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Through Chapter"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "KnowledgeQuery"
+      },
       "LocalSearchResponse": {
         "properties": {
           "query": {
@@ -9576,10 +10035,12 @@
             "type": "string",
             "enum": [
               "legacy-v1",
-              "causal-v1"
+              "causal-v1",
+              "plot-led-v2",
+              "plot-led-v3"
             ],
             "title": "Narrative Policy",
-            "default": "causal-v1"
+            "default": "plot-led-v3"
           },
           "context_policy": {
             "type": "string",
@@ -9587,10 +10048,14 @@
               "full-v1",
               "bounded-v1",
               "focused-v1",
-              "world-bounded-v1"
+              "world-bounded-v1",
+              "knowledge-rag-v1",
+              "role-rag-v2",
+              "role-key-v3",
+              "chief-focus-v4"
             ],
             "title": "Context Policy",
-            "default": "world-bounded-v1"
+            "default": "chief-focus-v4"
           },
           "candidate_sha256": {
             "type": "string",
@@ -9715,10 +10180,14 @@
               "full-v1",
               "bounded-v1",
               "focused-v1",
-              "world-bounded-v1"
+              "world-bounded-v1",
+              "knowledge-rag-v1",
+              "role-rag-v2",
+              "role-key-v3",
+              "chief-focus-v4"
             ],
             "title": "Context Policy",
-            "default": "world-bounded-v1"
+            "default": "chief-focus-v4"
           },
           "automation_policy": {
             "type": "string",
@@ -9769,10 +10238,12 @@
             "type": "string",
             "enum": [
               "legacy-v1",
-              "causal-v1"
+              "causal-v1",
+              "plot-led-v2",
+              "plot-led-v3"
             ],
             "title": "Narrative Policy",
-            "default": "causal-v1"
+            "default": "plot-led-v3"
           },
           "plan_policy": {
             "type": "string",
@@ -10515,6 +10986,50 @@
         ],
         "title": "PlotThreadsBlueprintSectionData"
       },
+      "PreviewTemplate": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Project Id"
+          },
+          "batch_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Batch Id"
+          },
+          "variant": {
+            "type": "string",
+            "enum": [
+              "chief",
+              "writer",
+              "rewrite",
+              "memory",
+              "checker",
+              "editor",
+              "title"
+            ],
+            "title": "Variant"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TemplateText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_id",
+          "batch_id",
+          "variant"
+        ],
+        "title": "PreviewTemplate"
+      },
       "ProjectDeletionPreview": {
         "properties": {
           "project_id": {
@@ -10969,6 +11484,78 @@
           "created_at"
         ],
         "title": "ProjectSummary"
+      },
+      "PromptPreview": {
+        "properties": {
+          "system_prompt": {
+            "type": "string",
+            "title": "System Prompt"
+          },
+          "task_prompt": {
+            "type": "string",
+            "title": "Task Prompt"
+          },
+          "input_count": {
+            "type": "integer",
+            "title": "Input Count"
+          },
+          "counting_method": {
+            "type": "string",
+            "title": "Counting Method"
+          },
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blockers"
+          },
+          "omitted_optional": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Omitted Optional"
+          },
+          "engine_contract": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Engine Contract"
+          },
+          "source_action": {
+            "type": "string",
+            "title": "Source Action"
+          },
+          "source_call_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Call Id"
+          },
+          "source_description": {
+            "type": "string",
+            "title": "Source Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "system_prompt",
+          "task_prompt",
+          "input_count",
+          "counting_method",
+          "blockers",
+          "omitted_optional",
+          "engine_contract",
+          "source_action",
+          "source_call_id",
+          "source_description"
+        ],
+        "title": "PromptPreview"
       },
       "ProviderModelOption": {
         "properties": {
@@ -12079,6 +12666,38 @@
           "confirmed"
         ],
         "title": "SaveStyleProfileRequest"
+      },
+      "SaveTemplate": {
+        "properties": {
+          "expected_revision": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Expected Revision"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TemplateText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Note",
+            "default": "手动修改"
+          }
+        },
+        "type": "object",
+        "required": [
+          "expected_revision",
+          "template"
+        ],
+        "title": "SaveTemplate"
       },
       "Scene": {
         "properties": {
@@ -13310,6 +13929,29 @@
           "confirmed"
         ],
         "title": "SyncWorkspaceRequest"
+      },
+      "TemplateText": {
+        "properties": {
+          "system_text": {
+            "type": "string",
+            "maxLength": 80000,
+            "minLength": 1,
+            "title": "System Text"
+          },
+          "task_template": {
+            "type": "string",
+            "maxLength": 80000,
+            "minLength": 1,
+            "title": "Task Template"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "system_text",
+          "task_template"
+        ],
+        "title": "TemplateText"
       },
       "TestProviderProfileRequest": {
         "properties": {

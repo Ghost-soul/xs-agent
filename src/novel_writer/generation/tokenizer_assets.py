@@ -14,6 +14,10 @@ def resolve_tokenizers(spec: GenerationSpec) -> GenerationSpec:
         "bounded-v1",
         "focused-v1",
         "world-bounded-v1",
+        "knowledge-rag-v1",
+        "role-rag-v2",
+        "role-key-v3",
+        "chief-focus-v4",
     }:
         return spec
     found: dict[str, str | None] = {}

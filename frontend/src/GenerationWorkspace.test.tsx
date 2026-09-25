@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerationWorkspace } from "./GenerationWorkspace";
 import { deleteLocalDraft, readLocalDraft, writeLocalDraft } from "./localDrafts";
@@ -7,12 +7,14 @@ const mocks = vi.hoisted(() => ({ api: vi.fn(), write: vi.fn() }));
 vi.mock("./api", async (original) => ({ ...await original<typeof import("./api")>(), api: mocks.api, StableWriteOperationKeys: class { request = mocks.write; } }));
 vi.mock("./localDrafts", () => ({ readLocalDraft: vi.fn().mockResolvedValue(null), writeLocalDraft: vi.fn().mockResolvedValue(undefined), deleteLocalDraft: vi.fn().mockResolvedValue(undefined), sha256: vi.fn().mockResolvedValue("body-hash") }));
 const spec = { base_version_id: "base-version", focus_card_id: "girls_love_gl", direction: "爱情影响行动", character_ids: ["a", "b"], viewpoint: "林青", relationship_scope: "explore", relationship_character_ids: ["a", "b"], profile_id: "fixture", chief_model: "m", writer_model: "m", max_cost_cny: "10" };
-const setup = { configuration_revision: "author-intent-v1", context_budget_revision: "world-bounded-v1", output_budget_revision: "chief-output-v1", automation_revision: "stage-auto-v1", base_version_id: "base-version", version: 1, characters: [{ id: "a", name: "林青" }, { id: "b", name: "江月" }], narrative_position: {}, style: { selection_mode: "specified", genre_card_id: "girls_love_gl", secondary_genre_card_ids: [], matched_cards: [{ id: "girls_love_gl", name: "百合" }] } };
+const setup = { configuration_revision: "author-intent-v1", context_budget_revision: "chief-focus-v4", output_budget_revision: "chief-output-v1", automation_revision: "stage-auto-v1", base_version_id: "base-version", version: 1, characters: [{ id: "a", name: "林青" }, { id: "b", name: "江月" }], narrative_position: {}, style: { selection_mode: "specified", genre_card_id: "girls_love_gl", secondary_genre_card_ids: [], matched_cards: [{ id: "girls_love_gl", name: "百合" }] } };
 const saved = { id: "batch", project_id: "p", status: "needs_attention", spec, revision: "genre-led-single-chapter-v1", preview_sha256: "preview", snapshot: { maximum_cost_cny: "1.20", plan_input_tokens: 45000, blockers: [] }, state: { candidate_id: "candidate", message: "复核不可用，正文已保存" }, next_action: null, artifacts: [{ id: "candidate", kind: "candidate", sha256: "candidate-sha", payload: { body: "林青希望她留下。", complete: true } }], calls: [] };
 
 afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.api.mockReset();
+  mocks.write.mockReset();
   vi.mocked(readLocalDraft).mockResolvedValue(null);
   mocks.api.mockImplementation(async (path: string) => {
     if (path.endsWith("/setup")) return setup;
@@ -82,7 +84,8 @@ describe("genre generation workspace", () => {
     const draft = { ...saved, status: "draft", next_action: "plan", state: {}, artifacts: [] };
     const original = mocks.api.getMockImplementation()!;
     mocks.api.mockImplementation(async (path: string, ...args: unknown[]) => path.endsWith("/batch") ? draft : original(path, ...args));
-    render(<GenerationWorkspace projectId="p" onAdopted={vi.fn()} />);
+    // Finish initial effects before confirming; changing batches clears consent.
+    await act(async () => { render(<GenerationWorkspace projectId="p" onAdopted={vi.fn()} />); });
     fireEvent.click(await screen.findByLabelText("确认本批模型、完整题材卡及选中故事资料的外发范围与费用上限"));
     let finishRead!: () => void;
     mocks.api.mockImplementation(async (path: string, ...args: unknown[]) => path.endsWith("/batch") ? new Promise((resolve) => { finishRead = () => resolve({ ...draft, status: "running" }); }) : original(path, ...args));
@@ -91,7 +94,7 @@ describe("genre generation workspace", () => {
     expect(await screen.findByText("本次响应保存后暂停")).toBeEnabled();
     expect(screen.queryByText("授权并开始一章创作")).toBeNull();
     expect(mocks.write).toHaveBeenCalledOnce();
-    finishRead();
+    await act(async () => { finishRead(); });
   });
 
   it("opens role prompts from the stage status without starting a model call", async () => {
@@ -138,7 +141,7 @@ describe("genre generation workspace", () => {
     fireEvent.click(button);
     await waitFor(() => expect(mocks.write).toHaveBeenCalledTimes(1));
     expect(mocks.write.mock.calls[0][0]).toBe("/api/projects/p/generation-batches/random-preview");
-    expect(JSON.parse(mocks.write.mock.calls[0][1].body)).toMatchObject({ writing_policy: "guided-v1", narrative_policy: "causal-v1", feedback_policy: "logic-v1" });
+    expect(JSON.parse(mocks.write.mock.calls[0][1].body)).toMatchObject({ writing_policy: "guided-v1", narrative_policy: "plot-led-v3", feedback_policy: "logic-v1" });
   });
   it("keeps logic review and removes Reader and milestone options from new previews", async () => {
     render(<GenerationWorkspace projectId="p" onAdopted={vi.fn()} />);
@@ -269,7 +272,7 @@ describe("genre generation workspace", () => {
     fireEvent.click(screen.getByText("提高 Chief 输出并重新预览（不调用模型）"));
     await waitFor(() => expect(mocks.write).toHaveBeenCalledTimes(1));
     expect(mocks.write.mock.calls[0][0]).toBe("/api/projects/p/generation-batches/random-preview");
-    expect(JSON.parse(mocks.write.mock.calls[0][1].body)).toEqual({ ...failed.spec, input_limit: 200000, context_policy: "world-bounded-v1", chief_output_limit: 100000, auxiliary_output_limit: 100000, writer_output_limit: 100000, roles: {}, writing_policy: "guided-v1", narrative_policy: "causal-v1", plan_policy: "bounded-v1", length_policy: "unit-v1", chapter_count: null, target_characters: null, card_selection_policy: "separate-v1", supporting_card_id: null, narrative_card_ids: [], feedback_policy: "logic-v1", enable_checker: true, enable_reader: false, enable_editor: false, milestone_unit: null });
+    expect(JSON.parse(mocks.write.mock.calls[0][1].body)).toEqual({ ...failed.spec, input_limit: 200000, context_policy: "chief-focus-v4", chief_output_limit: 100000, auxiliary_output_limit: 100000, writer_output_limit: 100000, roles: {}, writing_policy: "guided-v1", narrative_policy: "plot-led-v3", plan_policy: "bounded-v1", length_policy: "unit-v1", chapter_count: null, target_characters: null, card_selection_policy: "separate-v1", supporting_card_id: null, narrative_card_ids: [], feedback_policy: "logic-v1", enable_checker: true, enable_reader: false, enable_editor: false, milestone_unit: null });
     expect(await screen.findByText("已按当前创作设置建立新预览；请核对费用后授权，尚未调用模型。")).toBeTruthy();
     expect(screen.getByText("授权并开始一章创作")).toBeDisabled();
   });
@@ -286,7 +289,7 @@ describe("genre generation workspace", () => {
     fireEvent.click(screen.getByText("重新检查并建立预览（不调用模型）"));
     await waitFor(() => expect(mocks.write).toHaveBeenCalledTimes(1));
     expect(mocks.write.mock.calls[0][0]).toBe("/api/projects/p/generation-batches/random-preview");
-    expect(JSON.parse(mocks.write.mock.calls[0][1].body)).toEqual({ ...spec, input_limit: 200000, chief_output_limit: 100000, writer_output_limit: 100000, auxiliary_output_limit: 100000, roles: {}, context_policy: "world-bounded-v1", writing_policy: "guided-v1", narrative_policy: "causal-v1", plan_policy: "bounded-v1", length_policy: "unit-v1", chapter_count: null, target_characters: null, card_selection_policy: "separate-v1", supporting_card_id: null, narrative_card_ids: [], feedback_policy: "logic-v1", enable_checker: true, enable_reader: false, enable_editor: false, milestone_unit: null });
+    expect(JSON.parse(mocks.write.mock.calls[0][1].body)).toEqual({ ...spec, input_limit: 200000, chief_output_limit: 100000, writer_output_limit: 100000, auxiliary_output_limit: 100000, roles: {}, context_policy: "chief-focus-v4", writing_policy: "guided-v1", narrative_policy: "plot-led-v3", plan_policy: "bounded-v1", length_policy: "unit-v1", chapter_count: null, target_characters: null, card_selection_policy: "separate-v1", supporting_card_id: null, narrative_card_ids: [], feedback_policy: "logic-v1", enable_checker: true, enable_reader: false, enable_editor: false, milestone_unit: null });
     expect(await screen.findByText("已建立新的检查预览，原记录保留；尚未授权或调用模型。")).toBeTruthy();
     expect(screen.getByText("授权并开始一章创作")).toBeDisabled();
   });

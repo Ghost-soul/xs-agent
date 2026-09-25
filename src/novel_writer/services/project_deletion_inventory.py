@@ -272,6 +272,9 @@ async def inventory_tables(session: AsyncSession) -> dict[str, Table]:
     if extras - REFLECTED_TABLES - {"alembic_version", "checkpoint_migrations"}:
         raise ConflictError("数据库存在尚未盘点的数据表，拒绝整本删除")
     tables = dict(Base.metadata.tables)
+    # These derived tables can be absent until the separately authorized index migration.
+    for name in {"knowledge_indexes", "knowledge_chunks", "knowledge_vectors"} - names:
+        tables.pop(name, None)
     connection = await session.connection()
     for name in sorted(extras & REFLECTED_TABLES):
         tables[name] = await connection.run_sync(partial(_reflect_table, name=name))

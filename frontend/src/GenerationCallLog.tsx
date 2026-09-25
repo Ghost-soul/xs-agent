@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from "react";
 import { api, errorMessage, isAbortError, type GenerationDetail } from "./api";
 import { actionName, callStatusName, chronologicalCalls, revalidationBlocker } from "./GenerationProgress";
 import { copyPlainText } from "./novelText";
+import { SavedContextSelection, SavedKnowledge, type ContextSelection } from "./KnowledgePanel";
 
 type Call = GenerationDetail["calls"][number];
 type Receipt = {
@@ -10,6 +11,7 @@ type Receipt = {
   request: {
     model_request?: { model?: string; system_prompt?: string; user_prompt?: string; max_output_tokens?: number };
     wire_body?: string;
+    key_context_selection?: ContextSelection;
   };
   response: {
     text?: string;
@@ -129,6 +131,8 @@ function CallInspector({ base, batchId, call }: { base: string; batchId: string;
       <p className="agent-call-meta">模型：{request?.model || "未记录"} · {callStatusName(receipt.status)}{terminal?.finish_reason ? ` · 结束原因：${terminal.finish_reason}` : ""}</p>
       {incomplete && <p role="alert">该响应未完整结束。以下保留当时已收到的内容。</p>}
       {!response && <p role="status">尚未保存模型响应。可稍后刷新查看；没有响应记录不代表请求未执行。</p>}
+      <SavedKnowledge userPrompt={request?.user_prompt} />
+      <SavedContextSelection selection={receipt.request.key_context_selection} />
       <div className="agent-source-tabs" role="tablist" aria-label="原始记录内容">
         {parts.map((p, index) => <button key={p.key} type="button" role="tab" id={`${id}-${p.key}`} aria-selected={part === p.key} aria-controls={`${id}-content`} tabIndex={part === p.key ? 0 : -1}
           onClick={() => { setPart(p.key); setNotice(""); }} onKeyDown={(event) => {

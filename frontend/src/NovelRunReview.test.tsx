@@ -40,7 +40,7 @@ it("amendment preview never authorizes calls and current unread prose stays expl
   fireEvent.click(screen.getByText("预览修订与核验费用"));
   await waitFor(() => expect(mocks.write).toHaveBeenCalledTimes(1));
   expect(mocks.write.mock.calls[0][0]).toBe("/batches/stage/amendment-preview");
-  expect(JSON.parse(mocks.write.mock.calls[0][1].body)).toMatchObject({ input_limit: 200000, output_limit: 100000, writing_policy: "guided-v1", narrative_policy: "causal-v1", feedback_policy: "logic-v1", enable_checker: true, enable_reader: false });
+  expect(JSON.parse(mocks.write.mock.calls[0][1].body)).toMatchObject({ input_limit: 200000, output_limit: 100000, writing_policy: "guided-v1", narrative_policy: "plot-led-v3", feedback_policy: "logic-v1", enable_checker: true, enable_reader: false });
   expect(await screen.findByText("授权本次修订并核验")).toBeDisabled();
   fireEvent.click(screen.getByLabelText("确认本次修订范围、资料外发与费用"));
   expect(screen.getByText("授权本次修订并核验")).not.toBeDisabled();

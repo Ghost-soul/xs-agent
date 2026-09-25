@@ -159,7 +159,8 @@ async def setup(project_id: UUID, request: Request, session: Session) -> dict[st
     style = await StyleProfileService(session).get(project_id)
     return {
         "configuration_revision": "author-intent-v1",
-        "context_budget_revision": "world-bounded-v1",
+        "context_budget_revision": "chief-focus-v4",
+        "narrative_revision": "plot-led-v3",
         "output_budget_revision": "chief-output-v1",
         "automation_revision": "stage-auto-v1",
         "base_version_id": str(version.id),

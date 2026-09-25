@@ -49,6 +49,7 @@ from novel_writer.generation.intent import prepare_cast, recall_text
 from novel_writer.generation.logic import advisory
 from novel_writer.generation.novel import invalidate_candidate, model_for, revision_for, slots_for
 from novel_writer.generation.preview_preparation import prepare_preview
+from novel_writer.generation.prompt_templates import contract_for
 from novel_writer.generation.questions import reconcile_questions
 from novel_writer.generation.reports import local_summary
 from novel_writer.generation.schemas import (
@@ -60,7 +61,6 @@ from novel_writer.generation.schemas import (
     PlanEdit,
 )
 from novel_writer.generation.tokenizer_assets import resolve_tokenizers
-from novel_writer.generation.world_context import contract_for
 from novel_writer.services.errors import ConflictError, NotFoundError, WorkflowError
 from novel_writer.services.formal_version_sync import invalidate_formal_dependents
 from novel_writer.services.provider_profiles import ProviderProfileStore
@@ -118,10 +118,13 @@ class GenerationService(WorkflowPersistenceMixin):
         if random_narratives:
             if spec.card_selection_policy != "separate-v1":
                 raise WorkflowError("随机叙事卡须使用独立题材与叙事选卡方式")
-            pool = sorted({
-                card["id"] for card in StyleProfileService(self.session).catalog()
-                if card.get("layer") == "narrative"
-            })
+            pool = sorted(
+                {
+                    card["id"]
+                    for card in StyleProfileService(self.session).catalog()
+                    if card.get("layer") == "narrative"
+                }
+            )
             if len(pool) < 2:
                 raise WorkflowError("活动叙事卡不足两张，无法建立随机选卡预览")
             spec = spec.model_copy(update={"narrative_card_ids": SystemRandom().sample(pool, 2)})
@@ -334,9 +337,24 @@ class GenerationService(WorkflowPersistenceMixin):
                     if a not in {"editor", "memory_edit", "checker_edit", "title"}
                 ]
             )
+        from novel_writer.generation.knowledge_binding import bind_snapshot
+
+        await bind_snapshot(self, project_id, spec, snapshot)
+        from novel_writer.generation.template_binding import defaults as template_defaults
+
+        templates = await template_defaults(self, spec)
+        if templates is not None:
+            snapshot["prompt_templates"] = templates
+            snapshot["prompt_contract_sha256"] = contract_for(spec, snapshot)
         await asyncio.to_thread(
-            prepare_preview, spec, snapshot, profile,
-            str(formal[-1].id) if formal else None, sources, formal_inputs, candidates,
+            prepare_preview,
+            spec,
+            snapshot,
+            profile,
+            str(formal[-1].id) if formal else None,
+            sources,
+            formal_inputs,
+            candidates,
         )
         frozen_sha = fingerprint(
             {"revision": revision_for(spec), "spec": payload, "snapshot": snapshot}
@@ -417,7 +435,7 @@ class GenerationService(WorkflowPersistenceMixin):
         if not dispatch:
             return
         if batch.snapshot.get("prompt_contract_sha256") != contract_for(
-            FrozenGenerationSpec.model_validate(batch.spec)
+            FrozenGenerationSpec.model_validate(batch.spec), batch.snapshot
         ):
             raise ConflictError("生成提示词已修订，请建立新批次；不会升级旧批次输入")
         profile = self.profiles.get(batch.spec["profile_id"])
@@ -465,7 +483,8 @@ class GenerationService(WorkflowPersistenceMixin):
             "revision": batch.revision,
             "spec": batch.spec,
             "preview_sha256": batch.preview_sha256,
-            "snapshot": batch.snapshot,
+            # The full frozen corpus stays in PostgreSQL; polling never transfers the whole book.
+            "snapshot": {k: v for k, v in batch.snapshot.items() if k != "knowledge_sources"},
             "next_action": batch.next_action,
             "state": batch.state,
             "plan_retry_preview": plan_retry_preview(batch, calls, {a.kind for a in artifacts}),

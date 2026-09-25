@@ -149,6 +149,15 @@ class ProjectDeletionService:
                     for table in reversed(Base.metadata.sorted_tables):
                         owned_rows = inventory.table_rows(table.name)
                         if owned_rows:
+                            if table.name in {"knowledge_chunks", "knowledge_vectors"}:
+                                if any(
+                                    row.values["project_id"] != project_id for row in owned_rows
+                                ):
+                                    raise ConflictError("知识索引归属与删除作品不一致")
+                                await session.execute(
+                                    delete(table).where(table.c.project_id == project_id)
+                                )
+                                continue
                             columns = list(table.primary_key)
                             if len(columns) != 1:
                                 raise ConflictError("删除归属规则尚未支持此复合主键")

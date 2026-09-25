@@ -1198,3 +1198,7 @@ class ContextCompactionRecord(Base):
 
 # Compatibility import for code and audit tooling written before the six-role ledger.
 WritingChunkCallRecord = AgentCallRecord
+
+
+# Register optional, rebuildable projections for backups and explicit project deletion.
+from novel_writer.knowledge import models as knowledge_models  # noqa: E402, F401

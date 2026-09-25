@@ -25,6 +25,9 @@ dependencies = [
   "tokenizers==0.22.0",
 ]
 
+[project.optional-dependencies]
+rag = ["onnxruntime==1.23.2", "numpy==2.2.6"]
+
 [dependency-groups]
 dev = [
   "mypy==1.17.0",

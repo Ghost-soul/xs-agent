@@ -1,10 +1,10 @@
 export type PersistedView =
   | "home" | "models" | "blueprint" | "reader" | "longform"
-  | "style" | "data" | "versions" | "generation";
+  | "style" | "data" | "versions" | "generation" | "prompts";
 
 const views = new Set<PersistedView>([
   "home", "models", "blueprint", "reader", "longform", "style",
-  "data", "versions", "generation",
+  "data", "versions", "generation", "prompts",
 ]);
 
 export type AppRouteState = {

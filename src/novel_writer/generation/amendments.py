@@ -11,6 +11,7 @@ from novel_writer.generation.content import fingerprint
 from novel_writer.generation.input_recovery import effective_spec
 from novel_writer.generation.logic import advisory
 from novel_writer.generation.novel import model_for
+from novel_writer.generation.prompt_templates import amendment_contract as contract_for
 from novel_writer.generation.reports import evidence
 from novel_writer.generation.schemas import (
     LONGFORM_REVISION,
@@ -20,7 +21,6 @@ from novel_writer.generation.schemas import (
 )
 from novel_writer.generation.service import GenerationService
 from novel_writer.generation.token_limits import with_limits as uniform_limits
-from novel_writer.generation.world_context import amendment_contract as contract_for
 from novel_writer.services.errors import ConflictError, WorkflowError
 from novel_writer.services.provider_profiles import ProviderProfile
 
@@ -61,7 +61,8 @@ async def authorized_spec(
     ):
         raise ConflictError("修订授权与原批次或预览来源失配")
     spec = with_limits(spec, amendment.payload["request"])
-    if amendment.payload.get("prompt_contract_sha256", contract_for(spec)) != contract_for(spec):
+    expected = contract_for(spec, amendment.payload)
+    if amendment.payload.get("prompt_contract_sha256", expected) != expected:
         raise ConflictError("修订提示词已变化，请重新预览；原授权不升级")
     return spec
 
@@ -117,6 +118,10 @@ async def preview_amendment(
     )
     if cost > request.max_cost_cny:
         raise WorkflowError("修订和证据重建的费用上界超过本次预算")
+    from novel_writer.generation.template_binding import defaults as template_defaults
+
+    templates = await template_defaults(service, spec)
+    binding = {"prompt_templates": templates} if templates is not None else {}
     payload = {
         "request": request.model_dump(mode="json"),
         "slots": slots,
@@ -124,7 +129,8 @@ async def preview_amendment(
         "base_preview_sha256": batch.preview_sha256,
         "input_limit": spec.input_limit,
         "output_limit": request.output_limit,
-        "prompt_contract_sha256": contract_for(spec),
+        "prompt_contract_sha256": contract_for(spec, binding),
+        **binding,
         "feedback_policy": spec.feedback_policy,
         "writing_policy": spec.writing_policy,
         "enable_checker": spec.enable_checker,

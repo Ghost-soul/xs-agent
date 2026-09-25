@@ -53,11 +53,11 @@ export function initialGenerationSpec(setup: GenerationSetup, profiles: Provider
   const available = eligibleProfiles(profiles);
   const profile = available.find((p) => p.id === inherited?.profile_id) ?? available[0];
   const initial: GenerationSpec = {
-    workflow: "novel-run-v1", context_policy: "world-bounded-v1", automation_policy: "stage-auto-v1", stage_mode: "longform-v1", unit_limit: 3, character_selection: "chief-auto-v1",
+    workflow: "novel-run-v1", context_policy: "chief-focus-v4", automation_policy: "stage-auto-v1", stage_mode: "longform-v1", unit_limit: 3, character_selection: "chief-auto-v1",
     enable_editor: false, generate_title: false, base_version_id: setup.base_version_id,
     feedback_policy: "logic-v1", writing_policy: "guided-v1", enable_checker: true, enable_reader: false,
     focus_card_id: setup.style.genre_card_id ?? "", supporting_card_id: null,
-    card_selection_policy: "separate-v1", narrative_card_ids: [], narrative_policy: "causal-v1", plan_policy: "bounded-v1",
+    card_selection_policy: "separate-v1", narrative_card_ids: [], narrative_policy: "plot-led-v3", plan_policy: "bounded-v1",
     direction: "", author_boundaries: "", character_ids: [], viewpoint: "", relationship_scope: "genre-led", relationship_character_ids: [],
     profile_id: "", chief_model: "", writer_model: "", length_policy: "unit-v1", chapter_count: null, target_characters: null,
     input_limit: INPUT_TOKEN_LIMIT, chief_output_limit: TOKEN_LIMIT,
@@ -88,11 +88,11 @@ export function initialGenerationSpec(setup: GenerationSetup, profiles: Provider
   result.relationship_scope = "genre-led";
   result.feedback_policy = "logic-v1";
   result.writing_policy = "guided-v1";
-  result.narrative_policy = "causal-v1";
+  result.narrative_policy = "plot-led-v3";
   result.plan_policy = "bounded-v1";
   result.length_policy = "unit-v1";
   result.chapter_count = result.target_characters = null;
-  result.context_policy = "world-bounded-v1";
+  result.context_policy = "chief-focus-v4";
   if (result.direction === "围绕主导题材推进下一阶段，让人物选择产生可见后果，并从当前正式故事自然接续。") result.direction = defaultDirection;
   if (result.direction === "从人物当前处境与未完成事件自然续写，让人物选择推动故事发展。") result.direction = defaultDirection;
   result.enable_editor = false;
@@ -123,5 +123,5 @@ export function initialGenerationSpec(setup: GenerationSetup, profiles: Provider
 }
 
 export function previewSpec(spec: GenerationSpec): GenerationSpec {
-  return { ...spec, enable_reader: false, milestone_unit: null, feedback_policy: "logic-v1", length_policy: "unit-v1", chapter_count: null, target_characters: null, plan_policy: "bounded-v1", card_selection_policy: "separate-v1", narrative_card_ids: spec.narrative_card_ids ?? [], narrative_policy: "causal-v1", writing_policy: "guided-v1", automation_policy: "stage-auto-v1", context_policy: "world-bounded-v1", direction: spec.direction.trim() || defaultDirection, relationship_scope: "genre-led", relationship_character_ids: [] };
+  return { ...spec, enable_reader: false, milestone_unit: null, feedback_policy: "logic-v1", length_policy: "unit-v1", chapter_count: null, target_characters: null, plan_policy: "bounded-v1", card_selection_policy: "separate-v1", narrative_card_ids: spec.narrative_card_ids ?? [], narrative_policy: "plot-led-v3", writing_policy: "guided-v1", automation_policy: "stage-auto-v1", context_policy: "chief-focus-v4", direction: spec.direction.trim() || defaultDirection, relationship_scope: "genre-led", relationship_character_ids: [] };
 }
