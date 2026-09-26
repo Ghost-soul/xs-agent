@@ -16,6 +16,7 @@ EXACT_FILES = (
     "frontend/vite.config.ts", "deploy/compose.yaml", "deploy/configure.py",
     "deploy/entrypoint.py", "deploy/web.py", "deploy/healthcheck.py",
     "deploy/alembic.ini", "deploy/README.md", "deploy/__init__.py",
+    "configs/prompt-templates/published.json",
 )
 PATTERNS = (
     "src/novel_writer/**/*.py", "migrations/**/*.py",

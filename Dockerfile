@@ -30,6 +30,7 @@ COPY src/novel_writer ./src/novel_writer
 COPY migrations ./migrations
 COPY configs/genre-quality-cards/genres ./configs/genre-quality-cards/genres
 COPY configs/genre-quality-cards/narrative ./configs/genre-quality-cards/narrative
+COPY configs/prompt-templates/published.json ./configs/prompt-templates/published.json
 COPY deploy/alembic.ini ./alembic.ini
 COPY deploy/__init__.py deploy/entrypoint.py deploy/web.py deploy/healthcheck.py ./deploy/
 COPY --from=frontend /build/frontend/dist ./web

@@ -7,6 +7,7 @@ on:
       - 'src/**'
       - 'frontend/**'
       - 'configs/genre-quality-cards/**'
+      - 'configs/prompt-templates/**'
       - 'migrations/**'
       - 'deploy/**'
       - 'Dockerfile'

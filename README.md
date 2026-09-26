@@ -26,7 +26,9 @@ Compose 自动创建持久数据卷、初始化 PostgreSQL，并在数据库健�
 
 在「高级设置 → Prompt 模板」编辑各角色系统指导和任务结构，点击「保存为默认」。保存区会显示成功、失败或占位符问题；修改只影响后续新预览和新独立修订，已保存批次继续使用原合同。Chief 结合叙事卡设计完整事件，Writer 按当前有效单元执行；Memory 负责事实接力，Checker 可选，新阶段不提供 Reader。
 
-模板属于私有运行设置，存于 `/app/data/prompt-templates/`，与小说和密钥一样使用持久卷，仓库与镜像不携带本机的自定义内容。迁移已有模板时，备份并单独迁移该目录；仅更新镜像不会把另一台机器的模板带过来。
+作者已授权公开的 Chief、Writer 默认模板位于 [published.json](configs/prompt-templates/published.json)，随镜像提供；其余角色继续使用内置默认值。Docker 启动时，仅在 `/app/data/prompt-templates/current.json` 不存在的情况下安装该快照。安装后可在「高级设置 → Prompt 模板」查看和修改，重启与后续镜像更新均保留已有设置。已保存过模板（包括主动恢复内置默认）的实例不会被覆盖；可从公开文件复制对应角色的 `system_text` 和 `task_template` 到编辑框，保存后用于新预览。
+
+后续手动修改及模板历史仍保存在 `/app/data/prompt-templates/` 持久卷中，不会自动上传。镜像只包含明确授权的发布快照，不包含本机模板历史、小说、API Key 或数据库。历史批次继续使用各自冻结的模板。
 
 知识检索按作品和版本隔离，使用 PostgreSQL / pgvector；镜像包含 CPU 推理依赖，但不包含本地模型权重和知识索引。未安装模型时保留精确／词法检索。模型配置和升级说明见 [知识检索](docs/KNOWLEDGE.md)。
 

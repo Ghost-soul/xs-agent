@@ -14,6 +14,7 @@ from deploy.web import WebGateway
 from novel_writer.api.app import create_app
 from novel_writer.core.config import Settings, get_settings
 from novel_writer.core.maintenance import storage_lease
+from novel_writer.services.prompt_template_store import PromptTemplateStore
 
 
 def read_secret(name: str) -> str:
@@ -69,6 +70,9 @@ def main() -> None:
         return
     if operation != "serve":
         raise ValueError("只支持 serve 或显式 migrate 命令")
+    PromptTemplateStore(settings.provider_profiles_path).seed_from(
+        Path("/app/configs/prompt-templates/published.json"),
+    )
     application = WebGateway(
         create_app(settings), directory=Path("/app/web"),
         username=os.environ.get("NOVEL_WRITER_WEB_USER", "author"),

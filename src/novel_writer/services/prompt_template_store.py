@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from novel_writer.core.private_files import atomic_private_write, private_directory
 from novel_writer.generation.content import fingerprint
@@ -28,6 +28,30 @@ class PromptTemplateStore:
         if not path.exists():
             return self._bundle("builtin", {}, "项目默认", "")
         return self._read(path)
+
+    def seed_from(self, source: Path) -> bool:
+        """Install a published snapshot only when this instance has no saved defaults."""
+        pointer = self.root / "current.json"
+        if pointer.exists():
+            return False
+        with self._lock():
+            # Another process or author may have saved while we acquired the lock.
+            if pointer.exists():
+                return False
+            bundle = self._read(source)
+            try:
+                revision = str(UUID(bundle["revision"]))
+            except (KeyError, TypeError, ValueError, AttributeError) as error:
+                raise WorkflowError("发布模板版本标识无效") from error
+            version = self.root / "versions" / f"{revision}.json"
+            data = json.dumps(bundle, ensure_ascii=False, indent=2).encode("utf-8")
+            if version.exists():
+                if self._read(version) != bundle:
+                    raise ConflictError("已保存的同版本模板与发布模板不同；未覆盖历史")
+            else:
+                atomic_private_write(version, data)
+            atomic_private_write(pointer, data)
+        return True
 
     @staticmethod
     def _bundle(
@@ -102,8 +126,6 @@ class PromptTemplateStore:
         return saved
 
     def version(self, revision: str) -> dict[str, Any]:
-        from uuid import UUID
-
         try:
             identifier = str(UUID(revision))
         except ValueError as error:

@@ -8,6 +8,7 @@
 !migrations/**/*.py
 !configs/genre-quality-cards/genres/*.md
 !configs/genre-quality-cards/narrative/*.md
+!configs/prompt-templates/published.json
 !frontend/package.json
 !frontend/pnpm-lock.yaml
 !frontend/index.html
