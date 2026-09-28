@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.app.json",
+  "include": ["src/reader"],
+  "exclude": ["src/reader/**/*.test.tsx"]
+}

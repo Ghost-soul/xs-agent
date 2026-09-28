@@ -1,0 +1,40 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, "Microsoft YaHei", sans-serif; }
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: default; opacity: .4; }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid #438077; outline-offset: 3px; }
+.cloud-reader { --bg: #f8f6f1; --surface: #fffdf8; --ink: #282e2b; --muted: #6f7972; --line: #dfE3d9; --accent: #365e50; min-height: 100dvh; background: var(--bg); color: var(--ink); }
+.cloud-reader.night { --bg: #171e1b; --surface: #202924; --ink: #dddeda; --muted: #a2afa6; --line: #39463d; --accent: #a6cbb7; }
+button { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 7px; padding: 9px 14px; }
+input, select { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 9px; max-width: 100%; }
+label { display: grid; gap: 8px; font-size: 14px; }
+.reader-top { border-bottom: 1px solid var(--line); padding: 20px max(24px, calc((100vw - 1280px) / 2)); display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 16px; padding: 0; border: 0; background: transparent; font-family: "Songti SC", SimSun, serif; font-size: 28px; letter-spacing: 3px; }
+.brand span { font: 12px system-ui; color: var(--muted); letter-spacing: 2px; }
+.top-actions { display: flex; gap: 8px; }
+.top-actions button { background: transparent; font-size: 13px; }
+.library { max-width: 1180px; margin: auto; padding: 64px 24px; }
+.library-heading { display: flex; align-items: center; justify-content: space-between; gap: 32px; margin-bottom: 38px; }
+.library h1 { font-size: 34px; font-weight: 500; margin: 12px 0; }
+.eyebrow { font-size: 12px; color: var(--muted); letter-spacing: 3px; }
+.subtle { color: var(--muted); font-size: 14px; line-height: 1.7; }
+.book-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 22px; }
+.book-card { display: flex; align-items: stretch; gap: 22px; padding: 22px; min-width: 0; text-align: left; border-radius: 12px; transition: border-color .15s; }
+.book-card:hover { border-color: var(--accent); }
+.book-cover { width: 84px; min-height: 130px; flex-shrink: 0; background: #56695a; color: #fffdf0; border-radius: 3px 7px 7px 3px; border-left: 5px solid #ffffff22; display: grid; place-content: center; font: 40px "Songti SC", SimSun, serif; }
+.shade-1 { background: #82664f; }.shade-2 { background: #566575; }.shade-3 { background: #776477; }
+.book-info { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; min-width: 0; padding: 6px 0; }
+.book-info strong { font-size: 19px; overflow-wrap: anywhere; font-weight: 500; }.book-info > span { color: var(--muted); font-size: 13px; }.book-info .read-link { margin-top: auto; color: var(--accent); }
+.empty { padding: 64px 24px; text-align: center; color: var(--muted); line-height: 1.8; }.notice { max-width: 920px; margin: 30px auto; padding: 24px; border: 1px solid var(--line); border-radius: 8px; }
+.reading-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 48px; max-width: 1200px; margin: auto; padding: 36px 24px 70px; }
+.reading-sidebar { position: sticky; top: 24px; align-self: start; max-height: calc(100dvh - 48px); overflow: auto; scrollbar-width: thin; }
+.reading-sidebar h1 { font-size: 21px; line-height: 1.5; overflow-wrap: anywhere; margin: 0; }.reading-sidebar details { border-top: 1px solid var(--line); padding: 15px 0; }.reading-sidebar summary { cursor: pointer; font-size: 14px; }
+.reading-controls label { margin-top: 14px; }.reading-controls input { width: 100%; accent-color: var(--accent); }
+.reading-toc nav { margin-top: 12px; max-height: 40vh; overflow: auto; scrollbar-width: thin; display: grid; gap: 3px; }
+.reading-toc button { display: flex; gap: 10px; border: 0; background: transparent; text-align: left; padding: 9px 6px; font-size: 13px; }.reading-toc button span { color: var(--muted); }.reading-toc button[aria-current] { background: var(--surface); color: var(--accent); }
+.book-search { border-top: 1px solid var(--line); padding-top: 18px; }.search-results { padding-top: 10px; font-size: 13px; }.search-results button { width: 100%; text-align: left; display: grid; gap: 8px; margin: 6px 0; }.search-results span { font-size: 12px; line-height: 1.6; color: var(--muted); overflow-wrap: anywhere; }
+.reading-main { min-width: 0; }.reading-article { max-width: 780px; margin: 0 auto; padding: 24px 24px 45px; font: var(--reading-size)/var(--reading-leading) var(--reading-font); overflow-wrap: anywhere; }.reading-article header { text-align: center; margin-bottom: 42px; }.reading-article h2 { font-size: 1.5em; line-height: 1.6; font-weight: 600; margin: 12px 0; }.reading-article > p { text-indent: 2em; margin: 0 0 1.2em; white-space: pre-wrap; }.reading-article mark { background: #dcd79d; color: #292e22; }
+.chapter-navigation { max-width: 780px; margin: auto; border-top: 1px solid var(--line); padding: 24px 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }.chapter-navigation span { font-size: 13px; color: var(--muted); }
+@media (min-width: 761px) { .reading-toc > nav { display: grid; } }
+@media (max-width: 760px) { .reader-top { padding: 16px; }.brand { font-size: 24px; }.brand span { display: none; }.top-actions { gap: 5px; }.top-actions button { padding: 8px; }.library { padding: 36px 20px; }.library-heading { display: grid; gap: 20px; }.library h1 { font-size: 28px; }.book-grid { grid-template-columns: 1fr; }.reading-layout { display: block; padding: 22px 16px; }.reading-sidebar { position: static; max-height: none; }.reading-sidebar h1 { font-size: 18px; }.book-search { margin-bottom: 20px; }.reading-article { padding: 22px 4px; }.reading-article header { margin-bottom: 30px; }.search-results { max-height: 300px; overflow: auto; } }

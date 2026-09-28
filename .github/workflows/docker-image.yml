@@ -6,6 +6,10 @@ on:
     paths:
       - 'src/**'
       - 'frontend/**'
+      - '!frontend/src/reader/**'
+      - '!frontend/reader/**'
+      - '!frontend/vite.reader.config.ts'
+      - '!frontend/tsconfig.reader.json'
       - 'configs/genre-quality-cards/**'
       - 'configs/prompt-templates/**'
       - 'migrations/**'

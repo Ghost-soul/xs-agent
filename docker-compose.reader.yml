@@ -1,0 +1,35 @@
+name: ${READER_STACK:-novel-reader}
+
+services:
+  reader:
+    image: ${READER_IMAGE:-ghcr.io/ghost-soul/xs-agent:reader}
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=16777216,mode=1777
+    environment:
+      READER_PUBLIC_ORIGIN: ${READER_PUBLIC_ORIGIN:-http://localhost:8081}
+      READER_WEB_USER: ${READER_WEB_USER:-reader}
+      READER_DATABASE_HOST: ${READER_DATABASE_HOST:-database}
+      READER_DATABASE_PORT: ${READER_DATABASE_PORT:-5432}
+      READER_DATABASE_NAME: ${READER_DATABASE_NAME:-novel_writer}
+      READER_DATABASE_USER: ${READER_DATABASE_USER:-novel_reader}
+      READER_DATABASE_SSLMODE: ${READER_DATABASE_SSLMODE:-prefer}
+      READER_DATABASE_PASSWORD: ${READER_DATABASE_PASSWORD:?Set the database password in .reader.env}
+      READER_WEB_PASSWORD: ${READER_WEB_PASSWORD:?Set the reader login password in .reader.env}
+    networks: [novels]
+    ports:
+      - "${READER_BIND:-127.0.0.1}:${READER_HTTP_PORT:-8081}:8000"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+networks:
+  novels:
+    external: true
+    name: ${READER_DATABASE_NETWORK:-novel-writer-server_default}

@@ -1,0 +1,17 @@
+# Pinned from the project's uv.lock; no model SDK, embeddings, or writing engine.
+annotated-types==0.7.0
+anyio==4.14.2
+click==8.4.2
+colorama==0.4.6
+fastapi==0.116.1
+h11==0.16.0
+idna==3.18
+psycopg==3.2.9
+psycopg-binary==3.2.9
+pydantic==2.11.7
+pydantic-core==2.33.2
+starlette==0.47.3
+typing-extensions==4.16.0
+typing-inspection==0.4.2
+tzdata==2026.3
+uvicorn==0.35.0

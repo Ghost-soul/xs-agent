@@ -78,3 +78,7 @@ ROADMAP.md
 docs/CURRENT_STATE.md
 docs/history/
 docs/reports/
+
+.reader.env
+
+frontend/reader-dist/
