@@ -180,7 +180,8 @@ def create(client, **changes):
             **changes,
         }
     if (
-        data.get("feedback_policy") == "legacy-v1"
+        not data.get("craft_policy")
+        or data.get("feedback_policy") == "legacy-v1"
         or data.get("enable_reader")
         or data.get("milestone_unit")
     ):

@@ -8,6 +8,7 @@ from uuid import UUID
 from novel_writer.db.models import GenerationBatchRecord, GenerationCallRecord
 from novel_writer.generation import chief_context, key_queries, knowledge_context, role_queries
 from novel_writer.generation.content import fingerprint
+from novel_writer.generation.craft_context import query_plan
 from novel_writer.generation.novel import role_for
 from novel_writer.generation.schemas import GenerationSpec
 from novel_writer.knowledge import embedding
@@ -37,7 +38,7 @@ async def bind_snapshot(
     except (OSError, ValueError):
         snapshot["knowledge_model_key"] = None
     query = (
-        key_queries.query_plan(spec, snapshot, "plan", None, None, {})
+        query_plan(spec, snapshot, "plan", None, None, {})
         if chief_context.uses_keys(spec)
         else None
     )
@@ -81,6 +82,22 @@ async def bind_request(
         await bind_role_state(service, batch, reports, action)
     recovery = await service.artifact(batch, "memory_output_authorization")
     await bind_preparation_receipt(service, batch, action, reports)
+    adjustment = await service.artifact(batch, "plan_adjustment")
+    if adjustment and adjustment.payload.get("action") == action:
+        plan_artifact = await service.artifact(batch, "plan")
+        candidate_artifact = await service.artifact(batch, "candidate")
+        note_artifact = await service.artifact(batch, "plan_author_note")
+        if (
+            adjustment.payload.get("plan_sha256")
+            == (plan_artifact.sha256 if plan_artifact else None)
+            and adjustment.payload.get("candidate_sha256")
+            == (candidate_artifact.sha256 if candidate_artifact else None)
+            and adjustment.payload.get("unit_chain_sha256") == reports.get("unit_chain_sha256")
+            and adjustment.payload.get("author_note_sha256")
+            == (note_artifact.sha256 if note_artifact else None)
+            and adjustment.payload.get("knowledge_retrieval") is not None
+        ):
+            reports["knowledge_retrieval"] = adjustment.payload["knowledge_retrieval"]
     saved = reports.get("knowledge_retrieval")
     if recovery and recovery.payload.get("action") == action:
         call = await service.session.get(
@@ -103,7 +120,7 @@ async def bind_request(
         )
     else:
         query = (
-            key_queries.query_plan(spec, snapshot, action, plan, body, reports, author_note)
+            query_plan(spec, snapshot, action, plan, body, reports, author_note)
             if chief_context.uses_keys(spec)
             else None
         )

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, errorMessage, isAbortError, jsonBody, StableWriteOperationKeys, type GenerationDetail, type GenerationSpec, type ProviderProfile } from "./api";
+import { api, ApiError, errorMessage, isAbortError, jsonBody, StableWriteOperationKeys, type GenerationDetail, type GenerationSpec, type ProviderProfile } from "./api";
 import { deleteLocalDraft, readLocalDraft, sha256, writeLocalDraft } from "./localDrafts";
 import { startPolling } from "./polling";
 import { clearDirtySurface, setDirtySurface } from "./unsavedChanges";
@@ -9,7 +9,7 @@ import { NovelRunReview } from "./NovelRunReview";
 import { CastPreview } from "./CharacterScope";
 
 import { GenerationSettings } from "./GenerationSettings";
-import { GenerationProgress } from "./GenerationProgress";
+import { actionName, GenerationProgress } from "./GenerationProgress";
 import { GenerationCallLog } from "./GenerationCallLog";
 import { ChiefPlanFields, ChiefPlanFiles, type Plan } from "./ChiefPlanEditor";
 import { InputRecovery } from "./InputRecovery";
@@ -17,6 +17,7 @@ import { MemoryRecovery } from "./MemoryRecovery";
 import { StepRecovery } from "./StepRecovery";
 import { withCurrentTokenLimits } from "./generationTokenLimits";
 import { StageContinuation } from "./StageContinuation";
+import { countStoryCharacters } from "./StageScale";
 import { GenerationJourney } from "./GenerationJourney";
 import { CandidateReader, type CandidateReading } from "./CandidateReader";
 import { JsonDetails } from "./JsonDetails";
@@ -40,6 +41,7 @@ export function GenerationWorkspace({ projectId, onAdopted }: { projectId: strin
   const [profiles, setProfiles] = useState<ProviderProfile[]>([]);
   const [history, setHistory] = useState<Summary[]>([]);
   const [spec, setSpec] = useState<GenerationSpec | null>(null);
+  const [formatTrial, setFormatTrial] = useState(false);
   const [narrativeMode, setNarrativeMode] = useState<NarrativeSelectionMode>("random");
   const [batch, setBatch] = useState<GenerationDetail | null>(null);
   const [error, setError] = useState("");
@@ -57,9 +59,10 @@ export function GenerationWorkspace({ projectId, onAdopted }: { projectId: strin
   const [preview, setPreview] = useState<Preview | null>(null);
   const [acceptDeviation, setAcceptDeviation] = useState(false);
   const [confirmedPreview, setConfirmedPreview] = useState<string | null>(null);
-  const confirmationBinding = batch ? `${batch.id}:${batch.preview_sha256}` : null;
+  const confirmationBinding = batch ? `${batch.id}:${batch.preview_sha256}:${batch.state.plan_id}:${batch.state.plan_adjustment_id}` : null;
   const costConfirmed = confirmationBinding !== null && confirmedPreview === confirmationBinding;
   const [unknownNote, setUnknownNote] = useState("");
+  const [unknownConfirmed, setUnknownConfirmed] = useState(false);
   const [savedPlanDraft, setSavedPlanDraft] = useState<PlanDraft | null>(null);
   const [savedDraft, setSavedDraft] = useState<{ body: string; baseSha: string } | null>(null);
   const [selectedPane, setSelectedPane] = useState<GenerationPane | null>(null);
@@ -74,7 +77,10 @@ export function GenerationWorkspace({ projectId, onAdopted }: { projectId: strin
   const planArtifact = artifact(batch, "plan");
   const plan = planArtifact?.payload as Plan | undefined;
   const review = artifact(batch, "review")?.payload;
+  const replacement = artifact(batch, "stage_replacement")?.payload;
+  const superseded = artifact(batch, "stage_superseded")?.payload;
   const memory = artifact(batch, "memory");
+  const trial = !!batch?.snapshot.format_trial_contract;
   const longform = batch?.revision === "genre-led-longform-v1";
   const frozenCards = (batch?.snapshot.cards ?? []) as { id: string; name: string }[];
   const narrativeNames = (batch?.spec.narrative_card_ids ?? []).map((id) => frozenCards.find((card) => card.id === id)?.name ?? id).join("、");
@@ -102,7 +108,7 @@ export function GenerationWorkspace({ projectId, onAdopted }: { projectId: strin
   const unitItems = (artifact(batch, "units")?.payload.items ?? []) as { memory_id?: string }[];
   const planEditingReady = batch?.plan_edit_revision === "author-plan-v1";
   const frozenCharacters = ((batch?.snapshot.context as { characters?: { id: string; name: string }[] } | undefined)?.characters ?? []).filter((c) => !unitItems.length || plan?.scenes.some((scene) => scene.character_ids.includes(c.id)));
-  const planEditable = !!batch && ["awaiting_plan", "paused", "needs_attention"].includes(batch.status) && !unitItems.some((u) => !u.memory_id) && !batch.calls.some((c) => c.action === (longform ? `write:${unitItems.length + 1}` : "write"));
+  const planEditable = !trial && !!batch && ["awaiting_plan", "paused", "needs_attention"].includes(batch.status) && !unitItems.some((u) => !u.memory_id) && !batch.calls.some((c) => c.action === (longform ? `write:${unitItems.length + 1}` : "write"));
   const candidateDirty = !!candidate && body !== text(candidate.payload.body);
   function openReading(fromEditor = false) {
     if (!candidate || !batch) return;
@@ -130,6 +136,7 @@ export function GenerationWorkspace({ projectId, onAdopted }: { projectId: strin
       if (controller.signal.aborted) return;
       setSpec(initialGenerationSpec(value, availableProfiles, previous?.spec, draft?.payload));
       setNarrativeMode(initialNarrativeSelectionMode(draft?.payload));
+      setFormatTrial(draft?.payload.format_trial === true);
       if (previous) setBatch(previous);
     }).catch((e: unknown) => { if (!isAbortError(e)) setError(errorMessage(e)); });
     return () => { alive.current = false; controller.abort(); };
@@ -137,10 +144,10 @@ export function GenerationWorkspace({ projectId, onAdopted }: { projectId: strin
 
   useEffect(() => {
     if (!spec) return;
-    const payload = generationFormDraft(spec, narrativeMode);
+    const payload = generationFormDraft(spec, narrativeMode, formatTrial);
     const timer = window.setTimeout(() => { void sha256(pretty(payload)).then((hash) => writeLocalDraft({ schema_version: "local-draft-v1", draft_key: `generation-form:${projectId}`, project_id: projectId, surface: "generation", resource_id: projectId, base_version: setup?.version ?? null, base_sha256: null, payload, payload_sha256: hash, updated_at: new Date().toISOString() })).catch(() => setNotice("浏览器草稿存储不可用；请先建立预览保存创作设置。")); }, 400);
     return () => window.clearTimeout(timer);
-  }, [spec, narrativeMode, projectId, setup?.version]);
+  }, [spec, narrativeMode, formatTrial, projectId, setup?.version]);
 
   useEffect(() => {
     setBody(text(candidate?.payload.body)); setPreview(null); setFactsConfirmed(false); setAcceptDeviation(false); setSavedDraft(null);
@@ -158,6 +165,7 @@ export function GenerationWorkspace({ projectId, onAdopted }: { projectId: strin
   }, [planArtifact?.id, dirtyKey]);
   useEffect(() => {
     setConfirmedPreview(null); setTitle(""); setChanges("{}"); setPreview(null); setSelectedPane(null); setReading(null);
+    setUnknownNote(""); setUnknownConfirmed(false);
     if (batch && settingsRef.current) settingsRef.current.open = false;
     const context = batch?.snapshot.context as { narrative_position?: Record<string, unknown> } | undefined;
     setPosition({ ...context?.narrative_position, recent_major_event: "", notes: "" });
@@ -188,11 +196,15 @@ export function GenerationWorkspace({ projectId, onAdopted }: { projectId: strin
   }
   async function perform(work: () => Promise<void>) {
     setBusy(true); setError(""); setNotice("");
-    try { await work(); } catch (e) { if (alive.current) setError(errorMessage(e)); }
+    try { await work(); } catch (e) {
+      if (alive.current) setError(errorMessage(e));
+      // A different batch may have begun blocking dispatch since this preview was read.
+      if (e instanceof ApiError && e.status === 409) await refresh().catch(() => undefined);
+    }
     finally { if (alive.current) setBusy(false); }
   }
   async function requestPreview(value: GenerationSpec) {
-    return writes.current.request<GenerationDetail>(narrativeMode === "random" ? `${base}/random-preview` : base, {
+    return writes.current.request<GenerationDetail>(formatTrial ? `${base}/trial-preview?random_narratives=${narrativeMode === "random"}` : narrativeMode === "random" ? `${base}/random-preview` : base, {
       method: "POST", body: jsonBody({ ...value, narrative_card_ids: narrativeMode === "random" ? [] : value.narrative_card_ids ?? [] }),
     });
   }
@@ -233,8 +245,9 @@ export function GenerationWorkspace({ projectId, onAdopted }: { projectId: strin
     const value = await api<GenerationDetail>(`${base}/${id}`);
     if (alive.current && ticket === selection.current) setBatch(value);
   }
-  const canEdit = batch && !active && !["outcome_uncertain", "adopted", "archived"].includes(batch.status);
+  const canEdit = !trial && batch && !active && !["outcome_uncertain", "adopted", "archived"].includes(batch.status);
   const configurationReady = setup?.configuration_revision === "author-intent-v1" && setup?.context_budget_revision === "chief-focus-v4" && setup?.output_budget_revision === "chief-output-v1" && setup?.automation_revision === "stage-auto-v1";
+  const craftReady = configurationReady && setup?.craft_revision === "stage-craft-v1";
   const planRetry = batch?.plan_retry_preview as { chief_output_limit: number; auxiliary_output_limit: number; previous_output_limit: number; reason?: string } | null | undefined;
 
   if (!setup || !spec) return <section className="generation-workspace"><h2>阶段创作</h2><p role={error ? "alert" : "status"}>{error || "正在读取正式起点与作者资料…"}</p></section>;
@@ -242,9 +255,18 @@ export function GenerationWorkspace({ projectId, onAdopted }: { projectId: strin
     <header className="generation-header"><div><span className="eyebrow">NovelRun</span><h2>阶段创作</h2><p>作者意图引导故事，Chief 设计、Writer 创作。</p></div>{batch && <button disabled={busy || active} onClick={openSettings}>新建阶段</button>}</header>
     {error && <p role="alert" className="error-banner">{error}</p>}{notice && <p role="status">{notice}</p>}
     {history.length > 0 && <label>创作记录<select aria-label="创作记录" value={batch?.id ?? ""} disabled={busy || candidateDirty || planDirty} onChange={(e) => void perform(() => selectBatch(e.target.value))}><option value="" disabled>选择批次</option>{history.map((h) => <option key={h.id} value={h.id}>{h.direction} · {labels[batch?.id === h.id ? batch.status : h.status] ?? h.status}</option>)}{batch && !history.some((h) => h.id === batch.id) && <option value={batch.id}>当前预览</option>}</select></label>}
+    {(batch?.dispatch_blockers ?? []).some((item) => item.batch_id !== batch?.id) && <section className="generation-panel generation-blocked" aria-label="阻塞新创作的调用">
+      <h3>其他阶段的调用尚未处理</h3>
+      <p>这些调用会阻止本作品再次派发。执行中的调用请等待；结果未知的调用可以核对后关闭，也可以另行授权恢复。</p>
+      {(batch?.dispatch_blockers ?? []).filter((item) => item.batch_id !== batch?.id).map((item) => <div key={item.call_id}>
+        <p>{actionName(item.action)} · {item.model} · {item.status === "executing" ? "执行中" : "结果未知，待核对"} · {new Date(item.started_at).toLocaleString()}</p>
+        <p>阶段 {item.batch_id}；调用 {item.call_id}</p>
+        <button disabled={busy || candidateDirty || planDirty} onClick={() => void perform(() => selectBatch(item.batch_id))}>打开阻塞阶段</button>
+      </div>)}
+    </section>}
     {batch && journey && <>
       {candidate && text(candidate.payload.body).trim() && <section className="generation-reading-entry" aria-label="已写正文">
-        <div><strong>已写正文</strong><p>{Array.from(text(candidate.payload.body)).length.toLocaleString()} 字符 · {candidate.payload.complete === false ? "已保存部分内容" : "已保存，可随时阅读"}</p></div>
+        <div><strong>已写正文</strong><p>{countStoryCharacters(text(candidate.payload.body)).toLocaleString()} 字（不含空白） · {candidate.payload.complete === false ? "已保存部分内容" : "已保存，可随时阅读"}</p></div>
         <button type="button" className="primary-button" onClick={() => openReading()}>阅读已写正文</button>
       </section>}
       {reading && <CandidateReader reading={reading} hasNewerVersion={reading.candidateId !== candidate?.id} onClose={() => setReading(null)} />}
@@ -252,10 +274,14 @@ export function GenerationWorkspace({ projectId, onAdopted }: { projectId: strin
         <div className="section-title"><span className="eyebrow">{journey.tone === "working" ? "系统自动处理中" : journey.tone === "done" ? "阶段记录" : "当前需要你的操作"}</span><button disabled={busy} onClick={() => void perform(refresh)}>刷新状态</button></div>
         <GenerationJourney journey={journey} />
         <GenerationProgress batch={batch} compact />
+        {replacement && <p role="status">已接替 {(replacement.replaced_stages as unknown[]).length} 个旧阶段，原正文、响应与费用记录保存在创作记录中。{(replacement.unknown_call_ids as unknown[]).length > 0 && `接替时有 ${(replacement.unknown_call_ids as unknown[]).length} 次旧调用结果未确认，费用沿用原记录；新阶段费用上限单独计算。`}</p>}
+        {superseded && <p role="status">本阶段已由新阶段接替，保留供阅读与下载。<button disabled={busy} onClick={() => void perform(() => selectBatch(String(superseded.replacement_batch_id)))}>打开接替阶段</button></p>}
         <button type="button" onClick={() => openPane("calls")}>查看各角色 Prompt 与输出</button>
+        {trial && <p role="status">当前为跳过本地格式校验试验；格式要求保留，Memory 不写入事实库。</p>}
+        <p>本阶段冻结模板：{String((batch.snapshot.prompt_templates as { revision?: string } | undefined)?.revision ?? "内置合同")}。当前默认的后续修改不会覆盖此阶段。</p>
         <div className="generation-next"><strong>下一步</strong><p>{journey.next}</p></div>
         <div className="generation-actions">
-        {planRetry && <div className="generation-blocked"><p>使用当前设置重新预览：输入 {spec.input_limit?.toLocaleString()} tokens、Chief 输出 {spec.chief_output_limit?.toLocaleString()}、Writer 输出 {spec.writer_output_limit?.toLocaleString()}、其他角色默认输出 {spec.auxiliary_output_limit?.toLocaleString()}，采用当前显示的题材并{narrativeMode === "random" ? "重新随机抽取两张叙事卡" : "使用当前手动选择的叙事卡"}，保留本次人物、作者要求及费用上限，重新计算费用。原失败记录保留。</p><button className="primary-button" disabled={busy || candidateDirty || !!authorNote.trim() || !!planText.trim() || !configurationReady} onClick={() => void perform(async () => {
+        {planRetry && <div className="generation-blocked"><p>使用当前设置重新预览：输入 {spec.input_limit?.toLocaleString()} tokens、Chief 输出 {spec.chief_output_limit?.toLocaleString()}、Writer 输出 {spec.writer_output_limit?.toLocaleString()}、其他角色默认输出 {spec.auxiliary_output_limit?.toLocaleString()}，采用当前显示的题材并{narrativeMode === "random" ? "重新随机抽取两张叙事卡" : "使用当前手动选择的叙事卡"}，保留本次人物、作者要求及费用上限，重新计算费用。原失败记录保留。</p><button className="primary-button" disabled={busy || candidateDirty || !!authorNote.trim() || !!planText.trim() || !craftReady} onClick={() => void perform(async () => {
           const retrySpec = withCurrentTokenLimits(batch.spec, spec);
           const value = await requestPreview(retrySpec);
           if (alive.current) { setBatch(value); setSpec(retrySpec); setHistory(await api<Summary[]>(base)); setNotice("已按当前创作设置建立新预览；请核对费用后授权，尚未调用模型。"); }
@@ -265,20 +291,33 @@ export function GenerationWorkspace({ projectId, onAdopted }: { projectId: strin
         {((batch.snapshot.blockers ?? []) as string[]).map((b) => <p role="alert" key={b}>{b}</p>)}
         {batch.status === "draft" && (batch.snapshot.blockers as unknown[])?.length > 0 && <div className="generation-blocked">
           <p>当前预览未通过本地预检，勾选费用确认也不能启动。可按当前设置的输入上限 {spec.input_limit?.toLocaleString()} tokens 重新检查分词配置并选择旧材料，完整题材卡和当前连续性保留。建立新预览会{narrativeMode === "random" ? "重新随机抽取两张叙事卡" : "使用当前手动选择的叙事卡"}。</p>
-          <button className="primary-button" disabled={busy || candidateDirty || !configurationReady} onClick={() => void perform(async () => {
+          <button className="primary-button" disabled={busy || candidateDirty || !craftReady} onClick={() => void perform(async () => {
             const value = await requestPreview(withCurrentTokenLimits(batch.spec, spec));
             if (alive.current) { setBatch(value); setHistory(await api<Summary[]>(base)); setNotice("已建立新的检查预览，原记录保留；尚未授权或调用模型。"); }
           })}>重新检查并建立预览（不调用模型）</button>
         </div>}
-        {["draft", "paused", "awaiting_plan"].includes(batch.status) && batch.next_action && !(longform && planArtifact && configurationReady && batch.status !== "draft") && <><label className="check"><input type="checkbox" checked={costConfirmed} onChange={(e) => setConfirmedPreview(e.target.checked ? confirmationBinding : null)} />确认本批模型、完整题材卡及选中故事资料的外发范围与费用上限</label><button className="primary-button" disabled={busy || !costConfirmed || (batch.snapshot.blockers as unknown[])?.length > 0} onClick={() => void perform(async () => { const receipt = await writes.current.request<{ id: string; status: string }>(`${base}/${batch.id}/authorize`, { method: "POST", body: jsonBody({ preview_sha256: batch.preview_sha256, confirmed: true }) }); if (alive.current) setBatch((current) => current?.id === receipt.id ? { ...current, status: receipt.status } : current); })}>{batch.status === "draft" ? (longform ? "授权并开始阶段创作" : "授权并开始一章创作") : "确认并继续剩余动作"}</button></>}
+        {["draft", "paused", "awaiting_plan"].includes(batch.status) && batch.next_action && !(longform && !trial && planArtifact && configurationReady && batch.status !== "draft") && <><label className="check"><input type="checkbox" checked={costConfirmed} onChange={(e) => setConfirmedPreview(e.target.checked ? confirmationBinding : null)} />确认本批模型、完整题材卡及选中故事资料的外发范围与费用上限</label><button className="primary-button" disabled={busy || !costConfirmed || (batch.snapshot.blockers as unknown[])?.length > 0} onClick={() => void perform(async () => { const receipt = await writes.current.request<{ id: string; status: string }>(`${base}/${batch.id}/authorize`, { method: "POST", body: jsonBody({ preview_sha256: batch.preview_sha256, ...(batch.spec.craft_policy === "stage-craft-v1" ? { expected_plan_sha256: planArtifact?.sha256 ?? null, expected_adjustment_sha256: batch.artifacts.find((a) => a.id === batch.state.plan_adjustment_id)?.sha256 ?? null } : {}), confirmed: true }) }); if (alive.current) setBatch((current) => current?.id === receipt.id ? { ...current, status: receipt.status } : current); })}>{batch.status === "draft" ? (longform ? "授权并开始阶段创作" : "授权并开始一章创作") : "确认并继续剩余动作"}</button></>}
         {active && <button disabled={busy} onClick={() => void perform(async () => { await writes.current.request(`${base}/${batch.id}/pause`, { method: "POST", body: jsonBody({ confirmed: true }) }); if (alive.current) setNotice("已收到暂停请求，本次响应保存后暂停。"); await refresh(); })}>本次响应保存后暂停</button>}
-        {batch.status === "outcome_uncertain" && !batch.step_recovery_available && <><p>该调用可能已计费。请先在供应商处核对；关闭未知状态不会发送请求，后续新批次需重新确认费用。</p><label>核对结论<textarea value={unknownNote} onChange={(e) => setUnknownNote(e.target.value)} /></label><button disabled={busy || !unknownNote.trim()} onClick={() => void perform(async () => { setBatch(await writes.current.request<GenerationDetail>(`${base}/${batch.id}/resolve-unknown`, { method: "POST", body: jsonBody({ confirmed: true, note: unknownNote }) })); })}>记录核对结论并关闭未知状态</button></>}
+        {batch.status === "outcome_uncertain" && <section aria-label="关闭未知状态">
+          <h3>核对并关闭未知状态（不重试）</h3>
+          <p>若不准备重试这个阶段，可先向供应商核对原调用是否已经结束，再在这里关闭未知状态。原响应、已写正文和未知费用记录保留；关闭后不会调用模型或继续创作。</p>
+          <label>核对结论<textarea maxLength={2000} disabled={busy} value={unknownNote} onChange={(e) => setUnknownNote(e.target.value)} /></label>
+          <label className="check"><input type="checkbox" disabled={busy} checked={unknownConfirmed} onChange={(e) => setUnknownConfirmed(e.target.checked)} />我已核查原调用不再执行，理解费用可能仍未知；本次仅关闭状态，不重试</label>
+          <button disabled={busy || !unknownNote.trim() || !unknownConfirmed} onClick={() => void perform(async () => {
+            const value = await writes.current.request<GenerationDetail>(`${base}/${batch.id}/resolve-unknown`, { method: "POST", body: jsonBody({ confirmed: true, note: unknownNote.trim() }) });
+            if (alive.current) {
+              setBatch(value); setUnknownNote(""); setUnknownConfirmed(false);
+              setHistory((records) => records.map((item) => item.id === value.id ? { ...item, status: value.status } : item));
+              setNotice("已记录核对结论并关闭未知状态，没有重试。可在创作记录中返回新预览，核对费用后授权。");
+            }
+          })}>记录核对结论并关闭未知状态</button>
+        </section>}
       <InputRecovery batch={batch} base={base} disabled={busy || candidateDirty || planDirty} onContinued={(value) => setBatch((current) => current?.id === value.id ? value : current)} />
-      <MemoryRecovery batch={batch} base={base} disabled={busy || candidateDirty || planDirty} onContinued={(value) => setBatch((current) => current?.id === value.id ? value : current)} />
+      {!trial && <MemoryRecovery batch={batch} base={base} disabled={busy || candidateDirty || planDirty} onContinued={(value) => setBatch((current) => current?.id === value.id ? value : current)} />}
       <StepRecovery batch={batch} base={base} disabled={busy || candidateDirty || planDirty} onContinued={(value) => setBatch((current) => current?.id === value.id ? value : current)} />
-      {longform && configurationReady && <StageContinuation batch={batch} base={base} disabled={busy || candidateDirty || planDirty} onContinued={(value) => setBatch((current) => current?.id === value.id ? value : current)} />}
+      {!trial && longform && configurationReady && <StageContinuation batch={batch} base={base} disabled={busy || candidateDirty || planDirty} onContinued={(value) => setBatch((current) => current?.id === value.id ? value : current)} />}
         {journey.link && <button className="primary-button" onClick={() => openPane(journey.pane, journey.editPlan)}>{journey.link}</button>}
-        {journey.tone === "review" && <button onClick={() => openPane("review")}>查看反馈与采用</button>}
+        {journey.tone === "review" && <button onClick={() => openPane("review")}>{trial ? "查看笔记与反馈" : "查看反馈与采用"}</button>}
         {(candidateDirty || planDirty) && <p className="generation-unsaved">有未保存修改，请到对应页面保存或撤销后再继续。</p>}
         </div>
       </section>
@@ -289,16 +328,17 @@ export function GenerationWorkspace({ projectId, onAdopted }: { projectId: strin
         const next = event.key === "ArrowRight" ? order[(index + 1) % order.length] : event.key === "ArrowLeft" ? order[(index + order.length - 1) % order.length] : event.key === "Home" ? order[0] : event.key === "End" ? order.at(-1) : undefined;
         if (next) { event.preventDefault(); setSelectedPane(next); document.getElementById(`generation-tab-${next}`)?.focus(); }
       }}>
-        {([["plan", "故事方案"], ["body", "候选正文"], ["review", "审核与采用"], ["calls", "调用详情"]] as const).map(([key, label]) => <button type="button" role="tab" data-pane={key} id={`generation-tab-${key}`} aria-controls={`generation-pane-${key}`} aria-selected={pane === key} tabIndex={pane === key ? 0 : -1} key={key} onClick={() => setSelectedPane(key)}>{label}{key === "body" && candidateDirty ? " · 未保存" : ""}</button>)}
+        {([["plan", "故事方案"], ["body", "候选正文"], ["review", "审核与采用"], ["calls", "调用详情"]] as const).map(([key, label]) => <button type="button" role="tab" data-pane={key} id={`generation-tab-${key}`} aria-controls={`generation-pane-${key}`} aria-selected={pane === key} tabIndex={pane === key ? 0 : -1} key={key} onClick={() => setSelectedPane(key)}>{key === "review" && trial ? "笔记与反馈" : label}{key === "body" && candidateDirty ? " · 未保存" : ""}</button>)}
       </div>
       <div className="generation-tab-panel" id="generation-pane-plan" role="tabpanel" aria-labelledby="generation-tab-plan" hidden={pane !== "plan"} tabIndex={-1}>
       {!plan && <p className="generation-empty">{active ? "Chief 完成设计后，故事方案会出现在这里。" : "尚无已保存的故事方案，请先完成上方当前操作。"}</p>}
       {artifact(batch, "chief_comparison") && <section className="generation-panel"><h3>最近一次 Chief 剧情调整</h3><p>{text(artifact(batch, "chief_comparison")!.payload.assessment)}</p><details><summary>对照证据与修订记录</summary><pre>{pretty(artifact(batch, "chief_comparison")!.payload)}</pre></details></section>}
-      {plan && <section className="generation-panel"><h3>Chief 的故事方案</h3><p>{plan.chapter_goal}</p><p>衔接：{plan.bridge}</p><ol>{plan.scenes.map((s, i) => <li key={i}><strong>{s.event}</strong><p>{s.choice_and_response}</p><p>后果：{s.consequence}</p>{s.focus_percent !== undefined && <small>主导 {s.focus_percent}% · 过渡 {s.transition_percent}% · 其他 {s.other_percent}%（占{longform ? "全阶段" : "整章"}）</small>}</li>)}</ol><p>主要转折：{plan.major_turn}</p>{plan.world_context !== undefined ? <p>世界观与背景依据：{plan.world_context || "按正式设定自然展开"}</p> : <p>题材如何改变结果：{plan.genre_causal_role}</p>}{(novel ? questionItems.filter((q) => q.status === "pending").map((q) => q.question) : plan.questions ?? []).map((q) => <p role="alert" key={q}>待决：{q}</p>)}</section>}
-      {plan && <ChiefPlanFiles key={batch.id} batch={batch} />}
+      {plan && !trial && <section className="generation-panel"><h3>Chief 的故事方案</h3><p>{plan.chapter_goal}</p><p>衔接：{plan.bridge}</p><ol>{plan.scenes.map((s, i) => <li key={i}><strong>{s.event}</strong><p>{s.choice_and_response}</p><p>后果：{s.consequence}</p>{s.focus_percent !== undefined && <small>主导 {s.focus_percent}% · 过渡 {s.transition_percent}% · 其他 {s.other_percent}%（占{longform ? "全阶段" : "整章"}）</small>}</li>)}</ol><p>主要转折：{plan.major_turn}</p>{plan.world_context !== undefined ? <p>世界观与背景依据：{plan.world_context || "按正式设定自然展开"}</p> : <p>题材如何改变结果：{plan.genre_causal_role}</p>}{(novel ? questionItems.filter((q) => q.status === "pending").map((q) => q.question) : plan.questions ?? []).map((q) => <p role="alert" key={q}>待决：{q}</p>)}</section>}
+      {trial && plan && <section className="generation-panel"><h3>Chief 原始方案（未做格式校验）</h3><p>单元调度只用于限定调用次数，不能视为已验证设计。</p><pre>{text(planArtifact?.payload.raw_response)}</pre><JsonDetails title="单元调度依据" value={planArtifact?.payload.trial_schedule} /></section>}
+      {plan && !trial && <ChiefPlanFiles key={batch.id} batch={batch} />}
       {planEditable && plan && <details ref={planEditorRef} tabIndex={-1}><summary>编辑 Chief 方案与故事方向</summary><p>{["background-v1", "guided-v1"].includes(batch.spec.writing_policy) ? "只规划事件、人物选择和后果，不填写题材百分比。" : "历史合同：各单元篇幅合计 100%，主导题材至少 70%。"}已写单元保留原方案。</p>
         {savedPlanDraft && <p>发现方案浏览器草稿{savedPlanDraft.baseSha !== planArtifact?.sha256 ? "，已保存版本发生变化，请核对后恢复" : ""}。<button disabled={busy} onClick={() => { setPlanText(savedPlanDraft.planText); setAuthorNote(savedPlanDraft.authorNote); setQuestionAnswers(savedPlanDraft.questionAnswers); setDeferredQuestions(savedPlanDraft.deferredQuestions); setSavedPlanDraft(null); }}>恢复方案草稿</button><button disabled={busy} onClick={() => { void deleteLocalDraft(`${dirtyKey}:plan`); setSavedPlanDraft(null); }}>丢弃方案草稿</button></p>}
-        <ChiefPlanFields value={planText} onChange={setPlanText} writtenUnits={unitItems.length} disabled={busy || !planEditingReady} characters={frozenCharacters} />
+        <ChiefPlanFields value={planText} onChange={setPlanText} writtenUnits={unitItems.length} disabled={busy || !planEditingReady} characters={frozenCharacters} balancedUnits={(batch.snapshot.unit_delivery_contract as { revision?: string } | undefined)?.revision === "balanced-units-v1" && batch.spec.stage_scale?.scale_mode === "stage-range"} />
         {!planEditingReady && <p role="status">完整方案编辑与输入容量恢复需加载新版后端后使用；已保存方案可查看与下载。</p>}{novel && questionItems.filter((q) => q.status === "pending").map((q) => <div key={q.question}><label>{q.scope === "later" ? "后续问题" : "当前问题"}：{q.question}<textarea value={questionAnswers[q.question] ?? ""} disabled={busy || !planEditingReady || deferredQuestions.includes(q.question)} onChange={(e) => setQuestionAnswers({ ...questionAnswers, [q.question]: e.target.value })} /></label><label className="check"><input type="checkbox" disabled={busy || !planEditingReady} checked={deferredQuestions.includes(q.question)} onChange={(e) => { setDeferredQuestions(e.target.checked ? [...deferredQuestions, q.question] : deferredQuestions.filter((item) => item !== q.question)); const answers = { ...questionAnswers }; delete answers[q.question]; setQuestionAnswers(answers); }} />明确延期；在方案中避开依赖它的发展</label></div>)}<label>答复与修改说明<textarea disabled={busy || !planEditingReady} value={authorNote} onChange={(e) => setAuthorNote(e.target.value)} /></label><div className="button-row"><button disabled={busy || !planEditingReady || !authorNote.trim()} onClick={() => void perform(savePlan)}>保存方案（不调用模型）</button><button disabled={busy || !planDirty} onClick={() => { setPlanText(pretty(plan)); setAuthorNote(""); setQuestionAnswers({}); setDeferredQuestions([]); void deleteLocalDraft(`${dirtyKey}:plan`); }}>撤销方案修改</button></div></details>}
       {artifact(batch, "writer_issue") && <section className="generation-panel"><h3>Writer 报告冲突</h3><pre>{pretty(artifact(batch, "writer_issue")!.payload)}</pre></section>}
       </div>
@@ -310,13 +350,14 @@ export function GenerationWorkspace({ projectId, onAdopted }: { projectId: strin
         <label>正文<textarea className="generation-manuscript" aria-label="正文" readOnly={!canEdit} value={body} onChange={(e) => { setBody(e.target.value); setPreview(null); }} /></label>
         <div className="button-row"><button disabled={busy || !candidateDirty || !canEdit} onClick={() => void perform(saveBody)}>保存候选修改</button><button disabled={!candidateDirty} onClick={() => setBody(text(candidate.payload.body))}>撤销未保存修改</button><button onClick={() => { const url = URL.createObjectURL(new Blob([body], { type: "text/plain;charset=utf-8" })); const link = document.createElement("a"); link.href = url; link.download = "候选正文.txt"; link.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); }}>下载正文</button></div>
       </section>}
-      {candidate && !active && <button className="primary-button" onClick={() => openPane("review")}>下一步：查看反馈与采用</button>}
+      {candidate && !active && <button className="primary-button" onClick={() => openPane("review")}>{trial ? "查看笔记与反馈" : "下一步：查看反馈与采用"}</button>}
       </div>
       <div className="generation-tab-panel" id="generation-pane-review" role="tabpanel" aria-labelledby="generation-tab-review" hidden={pane !== "review"} tabIndex={-1}>
-      <p className="generation-review-intro">{active ? "内部流程仍在进行。这里展示已保存的阶段材料，完成后再核对和采用。" : "先读正文与独立反馈，再核对逐章事实，最后预览并确认采用。采用前，正文仍是候选稿。"}</p>
-      {novel && <NovelRunReview batch={batch} base={base} onRefresh={refresh} disabled={busy || !!active || candidateDirty} />}
+      <p className="generation-review-intro">{trial ? "试验保留格式要求，但跳过本地输出格式校验。正文可阅读与下载；Memory 笔记及核对意见未经验证，不写入事实库，不提供正式采用或独立修订。" : active ? "内部流程仍在进行。这里展示已保存的阶段材料，完成后再核对和采用。" : "先读正文与独立反馈，再核对逐章事实，最后预览并确认采用。采用前，正文仍是候选稿。"}</p>
+      {trial && (batch.artifacts as Artifact[]).filter((a) => ["trial_note", "trial_checker", "trial_title"].includes(a.kind)).map((a) => <section className="generation-panel" key={a.id}><h3>{a.kind === "trial_note" ? `Memory 第 ${a.payload.unit} 单元笔记` : a.kind === "trial_checker" ? "Checker 原始意见" : "标题建议"}（未校验）</h3><pre>{text(a.payload.text)}</pre></section>)}
+      {!trial && novel && <NovelRunReview batch={batch} base={base} onRefresh={refresh} disabled={busy || !!active || candidateDirty || batch.status === "archived"} />}
       {review && <section className="generation-panel"><h3>{novel ? "独立阅读：" : "正文复核："}{labels[text(review.outcome)] ?? "待判断"}</h3><p>{text(review.explanation)}</p><p>{review.ratio ? `主导题材篇幅区间约 ${Math.floor(Number((review.ratio as Record<string, unknown>).lower) * 100)}%–${Math.ceil(Number((review.ratio as Record<string, unknown>).upper) * 100)}%（依据模型分类，需人工阅读核对）` : novel ? "冷读不接作者目标；请对照实际阅读感受判断题材效果。" : "题材占比未知"}</p><p>{text(review.revision_advice)}</p><details><summary>观察证据与连续性建议</summary><pre>{pretty(review)}</pre></details></section>}
-      {longform && <LongformStage batch={batch} base={base} disabled={busy || !!active || candidateDirty} onAdopted={async () => { await refresh(); await onAdopted(); const latest = await api<Setup>(base + "/setup"); setSetup(latest); update({ base_version_id: latest.base_version_id }); }} />}
+      {!trial && longform && <LongformStage batch={batch} base={base} disabled={busy || !!active || candidateDirty || batch.status === "archived"} onAdopted={async () => { await refresh(); await onAdopted(); const latest = await api<Setup>(base + "/setup"); setSetup(latest); update({ base_version_id: latest.base_version_id }); }} />}
       {candidate && canEdit && !longform && <section className="generation-panel"><h3>采用前核对</h3><p>只将本章实际发生的事写入正式资料；题材目标与模型建议不自动成为事实。</p><label>章节标题<input value={title} onChange={(e) => { setTitle(e.target.value); setPreview(null); }} /></label><div className="generation-grid">{[["current_location", "当前地点"], ["current_time", "当前时间"], ["recent_major_event", "本章实际完成的事件"], ["current_conflict", "当前冲突"], ["in_progress", "仍在进行的事项"], ["notes", "实际关系后果与其他接续事实"]].map(([key, label]) => <label key={key}>{label}<textarea value={text(position[key])} onChange={(e) => { setPosition({ ...position, [key]: e.target.value }); setPreview(null); setFactsConfirmed(false); }} /></label>)}</div>
         <details><summary>资料变化详情与高级修正</summary><p>新版由 Memory 提出变化，下面显示将采用的完整内容；可纠正错误项。没有提取到不代表没有发生。</p><textarea className="code-input" value={changes} onChange={(e) => { setChanges(e.target.value); setPreview(null); setFactsConfirmed(false); }} /></details>
         {novel && <label className="check"><input type="checkbox" checked={factsConfirmed} onChange={(e) => { setFactsConfirmed(e.target.checked); setPreview(null); }} />我已核对本章实际事实、当前现场和资料变化；缺失或错误项已补充</label>}
@@ -337,10 +378,12 @@ export function GenerationWorkspace({ projectId, onAdopted }: { projectId: strin
       </details>
     </>}
     <details ref={settingsRef} open={!batch} className="generation-new-settings"><summary>新阶段设置 · 正式起点 v{setup.version}</summary>
-      <p>这里用于建立新的创作预览，不会修改当前阶段。先选题材、叙事卡选择方式与单元上限，再核对预览中的卡片和费用。</p>
+      <p>新预览通过预检后，默认覆盖本作品此前未采用的阶段：旧阶段转为历史记录，保留正文、响应与费用，旧的未知结果不再阻塞新阶段。正在执行或处理响应的调用须先等待结束。新阶段仍需单独确认费用后才开始创作。</p>
+      <label className="check"><input type="checkbox" checked={formatTrial} disabled={busy || !!active} onChange={(e) => setFormatTrial(e.target.checked)} />试验：要求输出格式，但跳过本地格式校验</label>
+      {formatTrial && <p>仅用于长篇阶段。Chief 原文继续交给 Writer，Memory 保存为未校验笔记；本阶段仅供阅读、下载，不自动写入事实库或正式采用。仍保留完整响应、来源、容量与费用保护。</p>}
       <GenerationSettings spec={spec} setup={setup} profiles={profiles} history={history} update={update} narrativeMode={narrativeMode} setNarrativeMode={setNarrativeMode} />
-      {!configurationReady && <p role="alert">简化创作设置需要加载新版后端；已有批次仍可查看和审核。</p>}
-      <button className="primary-button" disabled={busy || candidateDirty || planDirty || active || !configurationReady || !spec.profile_id || !spec.chief_model || !spec.writer_model || !spec.focus_card_id} onClick={() => void perform(async () => { const value = await requestPreview(previewSpec(spec)); if (alive.current) { setBatch(value); setHistory(await api<Summary[]>(base)); } })}>建立新预览（不调用模型）</button>
+      {!craftReady && <p role="alert">阶段规模与新版创作合同需要加载新版后端；已有批次仍可查看和审核。</p>}
+      <button className="primary-button" disabled={busy || candidateDirty || planDirty || active || !craftReady || !spec.profile_id || !spec.chief_model || !spec.writer_model || !spec.focus_card_id || (formatTrial && spec.stage_mode !== "longform-v1")} onClick={() => void perform(async () => { const value = await requestPreview(previewSpec(spec)); if (alive.current) { setBatch(value); setHistory(await api<Summary[]>(base)); } })}>建立新预览（不调用模型）</button>
     </details>
   </section>;
 }

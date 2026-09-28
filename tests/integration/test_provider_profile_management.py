@@ -1,5 +1,8 @@
+import asyncio
+import json
 from uuid import uuid4
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
@@ -7,7 +10,12 @@ from sqlalchemy import create_engine, text
 from novel_writer.api.app import create_app
 from novel_writer.core.config import Settings
 from novel_writer.core.credentials import CredentialError, MemoryCredentialStore
-from novel_writer.services.provider_profiles import ProviderModelOption, ProviderProfile
+from novel_writer.services.provider_profiles import (
+    ProviderModelOption,
+    ProviderProfile,
+    ProviderProfileStore,
+    build_provider,
+)
 from tests.integration.support import DATABASE_URL, headers
 from tests.integration.support import pytestmark as pytestmark
 
@@ -58,14 +66,6 @@ def delete(client, profile=None):
         headers=headers(str(uuid4())),
         json={"confirmed": True, "expected_revision": profile["profile_revision"]},
     )
-
-
-
-
-
-
-
-
 
 
 def test_delete_rejects_concurrent_dispatch_transaction_without_waiting(management):
@@ -132,3 +132,94 @@ def test_official_default_persists_without_mutating_runtime_contract(management)
             ).status_code
             == 422
         )
+
+
+@pytest.mark.parametrize("api_key", ["", "test-self-hosted-key"])
+@pytest.mark.parametrize("authorization_scheme", ["bearer", "raw"])
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "http://192.168.1.10:8000/v1",
+        "http://model-service:8000/v1",
+    ],
+)
+def test_http_profile_save_reload_and_connection_with_optional_key(
+    management,
+    monkeypatch,
+    base_url,
+    api_key,
+    authorization_scheme,
+):
+    client, _ = management
+    from novel_writer.api.routes import provider_profiles as routes
+
+    requests = []
+
+    def respond(request):
+        requests.append(request)
+        assert str(request.url) == base_url + "/chat/completions"
+        expected = api_key if authorization_scheme == "raw" else f"Bearer {api_key}"
+        assert request.headers.get("authorization") == (expected if api_key else None)
+        assert json.loads(request.content)["chat_template_kwargs"] == {
+            "enable_thinking": False,
+        }
+        return httpx.Response(
+            200,
+            json={
+                "id": "local-test",
+                "choices": [{"message": {"content": "OK"}, "finish_reason": "stop"}],
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+            },
+        )
+
+    transport_client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+    monkeypatch.setattr(
+        routes, "build_provider", lambda p: build_provider(p, client=transport_client)
+    )
+    try:
+        payload = {
+            "id": "self-hosted",
+            "display_name": "自部署模型",
+            "protocol": "openai_chat_completions",
+            "base_url": base_url,
+            "is_local": False,
+            "credential_required": bool(api_key),
+            "authorization_scheme": authorization_scheme,
+            "chat_template_enable_thinking": False,
+            "default_model": "local-model",
+            "models": [{"id": "local-model"}],
+        }
+        saved = client.put(
+            "/api/provider-profiles/self-hosted",
+            headers=headers(),
+            json={
+                "profile": payload,
+                "confirmed": True,
+            },
+        )
+        assert saved.status_code == 200, saved.text
+        assert saved.json()["base_url"] == base_url
+        assert not saved.json()["is_local"] and requests == []
+        store = ProviderProfileStore(client.app.state.provider_profile_store.path)
+        assert store.get("self-hosted").base_url == base_url
+        assert store.get("self-hosted").credential_required is bool(api_key)
+        assert store.get("self-hosted").authorization_scheme == authorization_scheme
+        assert store.get("self-hosted").chat_template_enable_thinking is False
+        if api_key:
+            credential = client.post(
+                "/api/provider-profiles/self-hosted/credential",
+                headers=headers(),
+                json={
+                    "api_key": api_key,
+                    "confirmed": True,
+                },
+            )
+            assert credential.status_code == 200, credential.text
+        tested = client.post(
+            "/api/provider-profiles/self-hosted/test", headers=headers(), json={"confirmed": True}
+        )
+        assert tested.status_code == 200, tested.text
+        assert tested.json()["ok"] is True and len(requests) == 1
+        assert current_profile(client, "self-hosted")["base_url"] == base_url
+    finally:
+        asyncio.run(transport_client.aclose())

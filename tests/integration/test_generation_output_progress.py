@@ -12,6 +12,7 @@ from tests.integration.test_genre_generation import (  # noqa: F401
     read,
     start,
 )
+from tests.integration.test_stage_craft import OPTIONS
 
 
 def test_failed_plan_has_clear_diagnostics_and_new_preview_needs_new_authorization(
@@ -59,8 +60,8 @@ def test_failed_plan_has_clear_diagnostics_and_new_preview_needs_new_authorizati
     old_response = deepcopy(read(client, f"{base}/{failed['id']}/calls/{failed['calls'][0]['id']}"))
     payload = {
         **failed["spec"],
-            "feedback_policy": "logic-v1", "enable_reader": False, "milestone_unit": None,
-            
+        **OPTIONS,
+        "milestone_unit": None,
         "chief_output_limit": advice["chief_output_limit"],
         "auxiliary_output_limit": advice["auxiliary_output_limit"],
         "writer_output_limit": advice["writer_output_limit"],
@@ -105,14 +106,13 @@ def test_all_100000_limits_create_only_preview_and_keep_model_capability_checks(
     )
     assert preview["status"] == "draft" and preview["calls"] == [] and control["calls"] == []
     assert all(v["output_limit"] == 100000 for v in preview["snapshot"]["action_models"].values())
-    rejected = post(client, base, {**preview["spec"],
-        "feedback_policy": "logic-v1", "enable_reader": False, "milestone_unit": None,
-         "writer_output_limit": 100001})
+    new_spec = {**preview["spec"], **OPTIONS, "milestone_unit": None}
+    rejected = post(client, base, {**new_spec, "writer_output_limit": 100001})
     assert rejected.status_code == 422
     assert len(read(client, base)) == 1 and control["calls"] == []
     profile.models[0].max_output_tokens = 48000
     store.save(profile)
-    blocked = post(client, base, {**preview["spec"], "feedback_policy": "logic-v1"})
+    blocked = post(client, base, new_spec)
     assert blocked.status_code == 400, blocked.text
     assert "超过模型能力" in blocked.json()["detail"]
     assert len(read(client, base)) == 1 and control["calls"] == []

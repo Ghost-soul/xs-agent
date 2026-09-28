@@ -17,8 +17,10 @@ from tests.integration.test_novel_run_rebuild import current
 
 def test_preview_without_an_input_override_defaults_to_200000(longform):
     client, control = longform
-    base, original = stage_create(client)
-    payload = {**original["spec"], "feedback_policy": "logic-v1"}
+    from tests.integration.test_stage_craft import create_craft
+
+    base, original = create_craft(client)
+    payload = dict(original["spec"])
     del payload["input_limit"]
     response = post(client, base, payload)
     assert response.status_code == 200, response.text

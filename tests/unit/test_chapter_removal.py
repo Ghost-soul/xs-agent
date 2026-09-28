@@ -85,7 +85,7 @@ def test_removing_chapter_prunes_only_its_derived_story_state() -> None:
 
 
 def test_truncating_story_replays_only_retained_chapter_deltas() -> None:
-    character = Character(name="钱泷", current_state="尚未进入故事")
+    character = Character(name="测试角色丙", current_state="尚未进入故事")
     thread = PlotThread(name="命运相遇", summary="尚未开始")
     base = StoryState(
         characters=(character,),

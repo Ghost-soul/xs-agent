@@ -115,7 +115,7 @@ def test_dashboard_reports_missing_structured_scene_evidence() -> None:
 
 def test_dashboard_remaps_historical_scene_and_promise_ordinals_by_chapter_id() -> None:
     chapter_id = uuid4()
-    event = StoryEvent(summary="凌风击倒魔法师")
+    event = StoryEvent(summary="测试角色甲击倒魔法师")
     scene = Scene(
         chapter_id=chapter_id,
         chapter_ordinal=3,

@@ -245,6 +245,9 @@ async def chapter_suggestions(
 async def preview(
     service: GenerationService, batch: GenerationBatchRecord, request: StageAdoptRequest
 ) -> dict[str, Any]:
+    from novel_writer.generation.format_trial import require_standard
+
+    require_standard(batch.snapshot)
     await service.assert_current(batch, dispatch=False)
     if batch.revision != LONGFORM_REVISION or batch.status not in {
         "paused",

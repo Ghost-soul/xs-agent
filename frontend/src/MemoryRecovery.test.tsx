@@ -8,7 +8,7 @@ import { generationJourney } from "./generationFlow";
 const mocks = vi.hoisted(() => ({ api: vi.fn(), write: vi.fn() }));
 vi.mock("./api", async (original) => ({ ...await original<typeof import("./api")>(), api: mocks.api, StableWriteOperationKeys: class { request = mocks.write; } }));
 const call = { id: "failed", action: "memory:2", status: "local_failure", diagnostic: { code: "output_limit_exceeded", visible_characters: 11145 } };
-const batch = { id: "batch", status: "needs_attention", memory_recovery_available: true, state: { candidate_id: "body", units_id: "units" }, spec: { stage_mode: "longform-v1" }, artifacts: [], calls: [call] } as unknown as GenerationDetail;
+const batch = { id: "batch", status: "needs_attention", memory_recovery_available: true, state: { candidate_id: "body", units_id: "units" }, snapshot: {}, spec: { stage_mode: "longform-v1" }, artifacts: [], calls: [call] } as unknown as GenerationDetail;
 const preview = { preview_sha256: "preview", action: "memory:2", previous_output_limit: 6000, output_limit: 100000, input_limit: 100000, input_tokens: 30390, spent_cost_cny: "1.451187", remaining_cost_upper_cny: "14.4", total_cost_upper_cny: "15.851187", previous_max_cost_cny: "10", max_cost_cny: "20", all_roles: true, blockers: [] };
 afterEach(cleanup);
 beforeEach(() => { vi.clearAllMocks(); mocks.api.mockResolvedValue(preview); mocks.write.mockResolvedValue({ ...batch, status: "queued" }); });

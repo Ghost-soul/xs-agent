@@ -38,7 +38,30 @@ afterEach(() => {
 });
 
 describe("ModelWorkspace", () => {
-  it("edits a custom profile without reading or replacing its API key", async () => {
+  it("saves a self-hosted HTTP endpoint and optional-key selection without probing it", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => ({
+      ok: true, json: async () => init?.method === "PUT" ? {} : [],
+    } as Response));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ModelWorkspace />);
+    fireEvent.change(await screen.findByLabelText("配置 ID"), { target: { value: "self-hosted" } });
+    fireEvent.change(screen.getByLabelText("显示名称"), { target: { value: "我的模型" } });
+    fireEvent.change(screen.getByLabelText("Base URL"), { target: { value: "http://model-service:8000/v1" } });
+    fireEvent.change(screen.getByLabelText("模型 ID（区分大小写，逗号或换行分隔）"), { target: { value: "local-model" } });
+    fireEvent.click(screen.getByLabelText("自部署／本地端点"));
+    fireEvent.click(screen.getByLabelText("需要 API Key"));
+    fireEvent.click(screen.getByRole("button", { name: "保存第三方配置" }));
+    await screen.findByText(/配置已保存在本机/);
+    const writes = fetchMock.mock.calls.filter(([, options]) => options?.method);
+    expect(writes).toHaveLength(1);
+    expect(writes[0][0]).toBe("/backend/api/provider-profiles/self-hosted");
+    expect(JSON.parse(String(writes[0][1]?.body)).profile).toMatchObject({
+      base_url: "http://model-service:8000/v1", is_local: true, credential_required: false,
+    });
+    expect(screen.getByText(/Docker 部署时，127.0.0.1 指项目容器自身/)).toBeVisible();
+  });
+
+  it.each(["bearer", "raw"] as const)("saves %s authentication without reading or replacing the key", async (scheme) => {
     let savedProfile = qwenProfile;
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "PUT") {
@@ -56,6 +79,10 @@ describe("ModelWorkspace", () => {
     expect(screen.getByLabelText("配置 ID")).toBeDisabled();
     expect(screen.getByLabelText("Base URL")).toHaveValue(qwenProfile.base_url);
     expect(screen.getByLabelText("默认模型")).toHaveValue("Qwen3.8-Max-Preview");
+    expect(screen.getByLabelText("API Key 发送方式")).toHaveValue("bearer");
+    fireEvent.change(screen.getByLabelText("API Key 发送方式"), { target: { value: scheme } });
+    expect(screen.getByLabelText("自部署思考模式")).toHaveValue("default");
+    fireEvent.change(screen.getByLabelText("自部署思考模式"), { target: { value: "false" } });
     expect(screen.getByLabelText("新模型默认流式")).toBeChecked();
     expect(screen.getByLabelText("Qwen3.8-Max-Preview")).not.toBeChecked();
 
@@ -86,12 +113,18 @@ describe("ModelWorkspace", () => {
     );
     expect(body.profile.default_model).toBe("qwen3.8-max-preview");
     expect(body.profile.streaming_enabled).toBe(true);
+    expect(body.profile.authorization_scheme).toBe(scheme);
+    expect(body.profile.chat_template_enable_thinking).toBe(false);
     expect(body.profile.models.map((model) => model.id)).toEqual([
       "qwen3.8-max-preview",
     ]);
     expect(body.profile.models[0]?.streaming_enabled).toBe(true);
     expect(body.api_key).toBeUndefined();
     expect(await screen.findByText(/API Key 保持不变/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "编辑配置" }));
+    expect(screen.getByLabelText("API Key 发送方式")).toHaveValue(scheme);
+    expect(screen.getByLabelText("自部署思考模式")).toHaveValue("false");
+    expect(fetchMock.mock.calls.filter(([, options]) => options?.method)).toHaveLength(1);
   });
 
   it("requires an explicit two-call capability authorization and declared limits", async () => {

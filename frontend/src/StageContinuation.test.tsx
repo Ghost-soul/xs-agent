@@ -11,6 +11,32 @@ afterEach(cleanup);
 beforeEach(() => { write.mockReset(); write.mockResolvedValue({ ...batch, status: "queued", next_action: "write:1" }); });
 
 describe("stage continuation", () => {
+  it("lets the author delegate a marked craft question without removing explicit boundaries", async () => {
+    const actual = { ...batch, spec: { ...batch.spec, craft_policy: "stage-craft-v1" as const }, artifacts: [batch.artifacts[0], { id: "q", sha256: "q-sha", payload: { items: [{ question, status: "pending", scope: "current_unit", reason: { kind: "author_boundary_conflict", source: "卡片适用前提", why_blocked: "人物尚未相识" } }] } }] };
+    render(<StageContinuation batch={actual} base="/batches" disabled={false} onContinued={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText("确认上述答复／委托，自动执行原费用上限内的剩余步骤并停在作者审核"));
+    expect(screen.getByRole("button")).toBeDisabled();
+    fireEvent.click(screen.getByLabelText("此项是普通剧情选择，交给 Chief／Writer 自主决定"));
+    expect(screen.getByRole("textbox")).toBeDisabled();
+    expect(screen.getByRole("button")).toBeDisabled();
+    fireEvent.click(screen.getByLabelText("确认上述答复／委托，自动执行原费用上限内的剩余步骤并停在作者审核"));
+    fireEvent.click(screen.getByRole("button"));
+    await waitFor(() => expect(write).toHaveBeenCalledOnce());
+    expect(JSON.parse(write.mock.calls[0][1].body)).toMatchObject({ delegated_questions: [question], question_answers: {} });
+  });
+
+  it("lets a current craft gap continue without a question answer or separate delegation", async () => {
+    const actual = { ...batch, spec: { ...batch.spec, craft_policy: "stage-craft-v1" as const }, artifacts: [batch.artifacts[0], { id: "q", sha256: "q-sha", payload: { items: [{ question, status: "pending", scope: "current_unit", reason: { kind: "missing_canonical_fact", source: "未设定", why_blocked: "待设计" } }] } }] };
+    render(<StageContinuation batch={actual} base="/batches" disabled={false} onContinued={vi.fn()} />);
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByText(/此项无需填写答复/)).toBeVisible();
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(screen.getByRole("button")).toBeEnabled();
+    fireEvent.click(screen.getByRole("button"));
+    await waitFor(() => expect(write).toHaveBeenCalledOnce());
+    expect(JSON.parse(write.mock.calls[0][1].body)).toMatchObject({ question_answers: {}, delegated_questions: [] });
+  });
+
   it("requires explicit delegation then sends one bound continuation request", async () => {
     const onContinued = vi.fn();
     render(<StageContinuation batch={batch} base="/batches" disabled={false} onContinued={onContinued} />);
@@ -22,6 +48,7 @@ describe("stage continuation", () => {
     fireEvent.click(button);
     await waitFor(() => expect(onContinued).toHaveBeenCalledTimes(1));
     expect(write).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(write.mock.calls[0][1].body)).not.toHaveProperty("expected_adjustment_sha256");
     expect(write.mock.calls[0][0]).toBe("/batches/b/continue-stage");
     expect(JSON.parse(write.mock.calls[0][1].body)).toMatchObject({ preview_sha256: "preview", expected_plan_sha256: "plan-sha", expected_questions_sha256: "q-sha", delegated_questions: [question], question_answers: {} });
   });

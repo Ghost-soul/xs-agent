@@ -190,8 +190,16 @@ def memory_result(
     state: StoryState,
     base: int,
     chapter: dict[str, Any] | None = None,
+    *,
+    reserved_character_ids: frozenset[str] = frozenset(),
+    reference_boundary: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    original, format_notes = normalize_memory_metadata(parse_object(raw), base)
+    from novel_writer.generation.memory_compatibility import normalize
+    from novel_writer.generation.structured_json import parse_report
+
+    original, compatibility_notes = normalize(parse_report(raw), reference_boundary)
+    original, format_notes = normalize_memory_metadata(original, base)
+    format_notes.extend(compatibility_notes)
     original, reference_notes = normalize_memory_format(original, body)
     format_notes.extend(reference_notes)
     diagnostics: list[dict[str, Any]] = []
@@ -268,7 +276,10 @@ def memory_result(
         ):
             raise _PendingMemoryDependency("同一对象的前项变化尚未处理，不能越过它更新")
         prior = existing.get(identifier)
-        if change.object_id is not None and prior is None:
+        reserved_character = (
+            change.collection == "characters" and identifier in reserved_character_ids
+        )
+        if change.object_id is not None and prior is None and not reserved_character:
             raise ValueError("更新对象不存在；新增对象请省略 object_id")
         value = {
             **(prior.model_dump(mode="json") if prior else {}),

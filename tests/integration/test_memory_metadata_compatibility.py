@@ -60,8 +60,8 @@ def test_failed_v2_report_can_be_revalidated_once_locally(annotated, monkeypatch
 
     with monkeypatch.context() as old:
         old.setattr(reports, "normalize_memory_metadata", lambda original, base: (original, []))
-        old.setattr(runtime, "parser_for", old_parser)
-        old.setattr(diagnostics, "parser_for", old_parser)
+        old.setattr(runtime, "response_parser", lambda batch, call: old_parser(batch.revision, call.action))
+        old.setattr(diagnostics, "response_parser", lambda batch, call: old_parser(batch.revision, call.action))
         batch = start(client, base, draft)
     call = next(c for c in batch["calls"] if c["action"].startswith("memory"))
     assert call["status"] == "local_failure" and "base_version" in batch["state"]["message"]
@@ -82,12 +82,12 @@ def test_failed_v2_report_can_be_revalidated_once_locally(annotated, monkeypatch
     assert latest["actual_cost_cny"] == call["actual_cost_cny"]
     assert latest["status"] == ("local_failure" if invalid_evidence else "completed")
     assert f"{call['id']}:memory-evidence-v2" in after["state"]["compiled"]
-    assert f"{call['id']}:memory-evidence-v4" in after["state"]["compiled"]
+    assert f"{call['id']}:memory-evidence-v5" in after["state"]["compiled"]
     assert after["status"] not in {"queued", "running"}
     assert post(client, route + "/revalidate", {"confirmed": True}).status_code == 409
     if not invalid_evidence:
         with monkeypatch.context() as upgraded:
-            upgraded.setattr(runtime, "parser_for", lambda *_: "future-parser")
+            upgraded.setattr(runtime, "response_parser", lambda *_: "future-parser")
             client.portal.call(
                 client.app.state.generation.compile_response, UUID(batch["id"]), UUID(call["id"])
             )

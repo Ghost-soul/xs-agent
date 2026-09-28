@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import json
 from dataclasses import dataclass
 
 import httpx
+
+
+def network_timeout(total_seconds: float) -> httpx.Timeout:
+    """The outer deadline bounds the whole call, including streamed heartbeats."""
+    return httpx.Timeout(total_seconds, connect=min(15, total_seconds),
+                         write=min(60, total_seconds), pool=min(15, total_seconds))
 
 
 @dataclass(frozen=True)
@@ -19,7 +26,7 @@ class ProviderTransport:
 
 
 class ProviderTransportReadError(httpx.StreamError):
-    def __init__(self, cause: Exception, transport: ProviderTransport) -> None:
+    def __init__(self, cause: BaseException, transport: ProviderTransport) -> None:
         super().__init__(str(cause))
         self.__cause__ = cause
         self.transport = transport
@@ -30,7 +37,9 @@ async def capture_response_body(response: httpx.Response) -> ProviderTransport:
     try:
         async for chunk in response.aiter_bytes():
             body.extend(chunk)
-    except Exception as error:
+    except (Exception, asyncio.CancelledError) as error:
+        # An outer deadline cancels the reader. Retain the same received bytes;
+        # adapters turn this into an unknown receipt, never a successful report.
         raise ProviderTransportReadError(error, encode_transport(bytes(body))) from error
     return encode_transport(bytes(body))
 

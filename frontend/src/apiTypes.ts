@@ -1,6 +1,6 @@
 import type { components } from "./generated/api";
-export type GenerationSpec = components["schemas"]["FrozenGenerationSpec"];
-export type GenerationDetail = components["schemas"]["GenerationDetail"];
+export type GenerationSpec = components["schemas"]["FrozenGenerationSpec"] & Partial<Pick<components["schemas"]["CraftSpec"], "craft_policy" | "stage_scale">>;
+export type GenerationDetail = Omit<components["schemas"]["GenerationDetail"], "spec"> & { spec: GenerationSpec };
 export type StoryPlan = components["schemas"]["StoryPlan"];
 export type LocalSearchResponse = components["schemas"]["LocalSearchResponse"];
 export type SearchResultResponse = components["schemas"]["SearchResultResponse"];
@@ -241,6 +241,8 @@ export type ProviderProfile = {
   enabled: boolean;
   is_local: boolean;
   credential_required: boolean;
+  authorization_scheme?: "bearer" | "raw";
+  chat_template_enable_thinking?: boolean | null;
   allow_story_data: boolean;
   structured_output_mode: "json_schema" | "json_object" | "prompt_only";
   supports_reasoning_effort: boolean;

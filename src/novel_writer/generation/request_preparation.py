@@ -8,7 +8,8 @@ from novel_writer.generation.budget import request_for, request_preview, validat
 from novel_writer.generation.chief_context import uses_roles as enabled
 from novel_writer.generation.content import fingerprint
 from novel_writer.generation.novel import role_for
-from novel_writer.generation.prompt_templates import render_for
+from novel_writer.generation.output_contract import KEY as OUTPUT_KEY
+from novel_writer.generation.progression_contract import prepare_output, render_for
 from novel_writer.generation.schemas import GenerationSpec
 from novel_writer.providers.base import ModelRequest
 from novel_writer.services.errors import WorkflowError
@@ -46,14 +47,34 @@ def prepare_request(
         system, user = render_for(spec, rendered, action, plan, body, author_note, render_reports)
         if "key_context_selection" in render_reports:
             reports["key_context_selection"] = render_reports["key_context_selection"]
-        for key in ("prompt_template_source", "prompt_template_revision"):
+        for key in (
+            "prompt_template_source",
+            "prompt_template_revision",
+            "prompt_rules_contract",
+            "prompt_program_settings",
+            "unit_delivery_contract",
+            "reliability_contract",
+            "format_trial_contract",
+            "progression_contract",
+        ):
             if key in render_reports:
                 reports[key] = render_reports[key]
+        if "creative_autonomy_contract" in render_reports:
+            reports["creative_autonomy_contract"] = render_reports["creative_autonomy_contract"]
         if action == "rewrite" and not enabled(spec):
             user += "\n作者明确改写要求\n" + str(scope["instruction"])
             if not longform:
                 user += "\n待改写原稿\n" + (body or "")
         request = request_for(spec, profile, action, system, user)
+        request = prepare_output(request, profile, action, rendered, render_reports)
+        for key in ("reliability_contract", "structured_delivery"):
+            if key in render_reports:
+                reports[key] = render_reports[key]
+        if "writer_scale" in render_reports:
+            reports["writer_scale"] = render_reports["writer_scale"]
+        if "output_format" in render_reports:
+            reports["output_format"] = render_reports["output_format"]
+            reports[OUTPUT_KEY] = render_reports[OUTPUT_KEY]
         capacity_error = None
         try:
             count = validate_capacity(request_preview(request), request, spec, profile, counting)

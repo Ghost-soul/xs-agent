@@ -16,12 +16,14 @@ from novel_writer.db.models import (
 )
 from novel_writer.generation.budget import (
     cost_for,
+    current_capacity_blocker,
     option_for,
     request_preview,
     validate_capacity,
 )
 from novel_writer.generation.content import fingerprint, parse_object
 from novel_writer.generation.novel import model_for
+from novel_writer.generation.output_failures import failure_diagnostic, replay_blocker
 from novel_writer.generation.schemas import LONGFORM_REVISION, GenerationSpec
 from novel_writer.providers.base import ModelRequest
 from novel_writer.services.errors import ConflictError
@@ -174,6 +176,7 @@ async def preview_step(
     from novel_writer.generation.stage import active_slots
 
     await service.assert_current(batch)
+    await service.assert_delivered(batch)
     calls = await call_list(service, batch)
     if not eligible(batch, calls):
         raise ConflictError("当前没有可恢复的失败步骤，或调用仍在处理中")
@@ -239,6 +242,10 @@ async def preview_step(
     reserved = sum((Decimal(c["reserved_cost_cny"]) for c in unknown), Decimal(0))
     total = known + reserved + upper
     blockers = []
+    if reason := current_capacity_blocker(request, profile, service.profiles.get(profile.id)):
+        blockers.append(reason)
+    if reason := replay_blocker(failed):
+        blockers.append(reason)
     if total > budget:
         blockers.append("已记录费用、未知费用预留及恢复后的剩余费用超过总预算，请调整预算再核算")
     questions = await service.artifact(batch, "questions")
@@ -293,6 +300,7 @@ async def preview_step(
         or failed.status in {"outcome_uncertain", "uncertain_closed"}
         or raw.get("error_code") == "outcome_uncertain",
         "partial_response_characters": len(raw.get("text") or ""),
+        "failure_diagnostic": failure_diagnostic(failed),
         "blockers": blockers,
     }
     return {**result, "preview_sha256": fingerprint(result)}

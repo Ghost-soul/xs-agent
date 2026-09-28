@@ -1,9 +1,10 @@
 import type { GenerationSpec, ProviderProfile } from "./api";
 import { INPUT_TOKEN_LIMIT } from "./generationTokenLimits";
+import { fitOutputCapacities, outputCapacities } from "./generationCapacity";
 import { CharacterScope } from "./CharacterScope";
 import { CreativeCardOptions, NarrativeCardPicker } from "./CreativeCards";
 import { StageSettings } from "./LongformStage";
-import { defaultDirection, eligibleProfiles, profileDefaults, type GenerationSetup, type NarrativeSelectionMode } from "./generationDefaults";
+import { defaultDirection, defaultStageScale, eligibleProfiles, profileDefaults, type GenerationSetup, type NarrativeSelectionMode } from "./generationDefaults";
 
 type Props = { spec: GenerationSpec; setup: GenerationSetup; profiles: ProviderProfile[]; history: { id: string; status: string; direction: string }[]; update: (patch: Partial<GenerationSpec>) => void; narrativeMode: NarrativeSelectionMode; setNarrativeMode: (mode: NarrativeSelectionMode) => void };
 
@@ -11,6 +12,8 @@ export function GenerationSettings({ spec, setup, profiles, history, update, nar
   const available = eligibleProfiles(profiles);
   const profile = available.find((p) => p.id === spec.profile_id);
   const models = profile?.models ?? [];
+  const capacities = outputCapacities(spec, profile);
+  const overCapacity = capacities.filter((c) => c.capacity != null && c.requested > c.capacity);
   const cards = setup.available_cards ?? setup.style.matched_cards;
   return <>
     {!spec.focus_card_id && <p role="alert">请选择一张主题材。</p>}
@@ -25,12 +28,15 @@ export function GenerationSettings({ spec, setup, profiles, history, update, nar
     <p>选卡方式与手动勾选仅用于新预览，已有阶段沿用预览中确认的卡片。</p>
     <label>本次想写什么（可选）<textarea value={spec.direction} maxLength={2000} placeholder={defaultDirection} onChange={(e) => update({ direction: e.target.value })} /></label>
     <p>题材卡提供世界背景与基础设定，选中的叙事卡引导人物关系、职业事件、故事机制与经典桥段。需要特殊世界规则的卡应与已有设定相容；可在上方补充本次想法。</p>
+    {spec.stage_mode === "longform-v1" && <p>阶段目标：{(spec.stage_scale?.min_characters ?? 15000).toLocaleString()}–{(spec.stage_scale?.max_characters ?? 20000).toLocaleString()} 字，首选 {spec.stage_scale?.preferred_units ?? 5} 个单元。可在下方“调整自动配置”修改目标。</p>}
     <div className="generation-grid">
-      <label>叙事单元上限<input type="number" min="1" max="6" value={spec.unit_limit ?? 3} onChange={(e) => update({ unit_limit: Number(e.target.value), stage_mode: "longform-v1", milestone_unit: null })} /></label>
+      <label>叙事单元上限<input type="number" min="1" max="6" value={spec.unit_limit ?? 5} onChange={(e) => { const limit = Number(e.target.value); update({ unit_limit: limit, stage_mode: "longform-v1", milestone_unit: null, stage_scale: { ...defaultStageScale, ...spec.stage_scale, scale_mode: "stage-range", preferred_units: Math.min(limit, spec.stage_scale?.preferred_units ?? 5) } }); }} /></label>
       <label>费用上限（元）<input type="number" min="0" max="10000" step="0.1" value={String(spec.max_cost_cny)} onChange={(e) => update({ max_cost_cny: e.target.value })} /></label>
     </div>
-    <p>当前安排：最多 {spec.unit_limit ?? 1} 个叙事单元，Chief 按剧情需要设计，Writer 每次完成一个单元的事件、人物选择、回应与后果，长短由故事决定。{spec.character_selection === "chief-auto-v1" ? "按剧情自动选角" : "使用指定人物范围"}，{spec.viewpoint || "Chief 安排视角"}。</p>
+    <p>当前安排：最多 {spec.unit_limit ?? 1} 个叙事单元，Chief 按阶段目标和首选数量设计，Writer 每次完成一个单元的事件过程、人物选择、回应与后果。{spec.character_selection === "chief-auto-v1" ? "按剧情自动选角" : "使用指定人物范围"}，{spec.viewpoint || "Chief 安排视角"}。</p>
     {profile ? <p>模型：{profile.display_name} · Chief {spec.chief_model} · Writer {spec.writer_model}。其余角色默认跟随 Chief，已保存的独立模型设置继续保留。</p> : <p role="alert">没有可用模型配置，请到「模型配置」启用模型并补齐凭证。</p>}
+    {overCapacity.length > 0 && <div role="alert"><p>以下输出上限超过已配置的模型容量，预览前需要调整：{overCapacity.map((c) => `${c.role} ${c.requested.toLocaleString()} → 最多 ${c.capacity!.toLocaleString()} tokens`).join("；")}。</p><button type="button" onClick={() => update(fitOutputCapacities(spec, profile))}>按模型容量调整输出额度</button></div>}
+    {profile && <details><summary>查看各角色输出容量</summary><ul>{capacities.map((c) => <li key={c.role}>{c.role} · {c.model}：本次 {c.requested.toLocaleString()} / 模型最大 {c.capacity?.toLocaleString() ?? "未知"} tokens</li>)}</ul><p>新默认值受模型已知容量限制；已有草稿的手动值需显式调整。容量是输出上限，不是正文字数目标。</p></details>}
     <details open={!!spec.author_boundaries}><summary>作者边界（可选）</summary><label>必须遵守的要求或禁区<textarea value={spec.author_boundaries ?? ""} maxLength={4000} placeholder="例如：仅写林青与江月的发展；本阶段不表白。无需填写常规关系许可。" onChange={(e) => update({ author_boundaries: e.target.value })} /></label></details>
     <fieldset><legend>阶段末反馈（可选）</legend>
       <p>Chief 决定故事方向，Writer 完成创作。正文完成后只做一次逻辑核对，检查事实、时间线和因果矛盾；不评价文风、节奏或题材比例，不自动改稿。</p>
@@ -44,7 +50,7 @@ export function GenerationSettings({ spec, setup, profiles, history, update, nar
         <label>模型配置<select value={spec.profile_id} onChange={(e) => update(profileDefaults(available.find((p) => p.id === e.target.value), spec))}><option value="">请选择</option>{available.map((p) => <option value={p.id} key={p.id}>{p.display_name}</option>)}</select></label>
         {(["chief_model", "writer_model"] as const).map((key) => <label key={key}>{key === "chief_model" ? "Chief 模型" : "Writer 模型"}<select value={spec[key]} onChange={(e) => update({ [key]: e.target.value, [key === "chief_model" ? "chief_tokenizer_id" : "writer_tokenizer_id"]: null })}><option value="">请选择</option>{models.map((m) => <option key={m.id} value={m.id}>{m.label ?? m.id}</option>)}</select></label>)}
       </div>
-      <details><summary>输入、输出容量与等待时间</summary><p>输入及所有角色输出上限均默认为 100,000 tokens，实际请求仍受所选模型容量限制。推理和可见结果共用输出额度。修改额度会重新计算费用预览。</p><div className="generation-grid">
+      <details><summary>输入、输出容量与等待时间</summary><p>输入上限默认 200,000 tokens，新建输出默认取 100,000 tokens 与所选模型已知容量中的较低值。推理和可见结果共用输出额度。修改额度会重新计算费用预览。</p><div className="generation-grid">
         <label>本次输入上限<input type="number" min="8000" max={INPUT_TOKEN_LIMIT} value={spec.input_limit} onChange={(e) => update({ input_limit: Number(e.target.value) })} /></label>
         <label>Chief 输出上限<input type="number" min="2000" max="100000" step="1000" value={spec.chief_output_limit ?? 100000} onChange={(e) => update({ chief_output_limit: Number(e.target.value) })} /></label>
         <label>Writer 输出上限<input type="number" min="4000" max="100000" step="1000" value={spec.writer_output_limit ?? 100000} onChange={(e) => update({ writer_output_limit: Number(e.target.value) })} /></label>

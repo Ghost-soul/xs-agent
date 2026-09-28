@@ -8,6 +8,7 @@ import pytest
 from tests.integration.support import headers
 from tests.integration.support import pytestmark as pytestmark
 from tests.integration.test_genre_generation import create, generation, post, read  # noqa: F401
+from tests.integration.test_stage_craft import OPTIONS
 
 
 @pytest.mark.parametrize(
@@ -17,7 +18,7 @@ from tests.integration.test_genre_generation import create, generation, post, re
 def test_retired_creation_fields_rejected_on_both_preview_routes(generation, change):
     client, control = generation
     base, frozen = create(client)
-    spec = {**frozen["spec"], "feedback_policy": "logic-v1", **change}
+    spec = {**frozen["spec"], **OPTIONS, "craft_policy": "stage-craft-v1", **change}
     for path in [base, base + "/random-preview"]:
         response = client.post(path, json=spec, headers=headers(str(uuid4())))
         assert response.status_code == 422, response.text
@@ -29,9 +30,13 @@ def test_single_unit_and_title_are_still_available_and_retrieval_is_retired(gene
     client, control = generation
     base, frozen = create(client)
     spec = {
-        **frozen["spec"], "workflow": "novel-run-v1", "feedback_policy": "logic-v1",
-        "stage_mode": "single-unit-v1", "generate_title": True,
+        **frozen["spec"],
+        **OPTIONS,
+        "craft_policy": "stage-craft-v1",
+        "stage_mode": "single-unit-v1",
+        "generate_title": True,
     }
+    assert read(client, base + "/setup")["craft_revision"] == "stage-craft-v1"
     response = post(client, base, spec)
     assert response.status_code == 200, response.text
     assert response.json()["spec"]["generate_title"] is True
@@ -45,9 +50,16 @@ def test_single_unit_and_title_are_still_available_and_retrieval_is_retired(gene
 def test_retired_reader_cannot_be_enabled_in_new_amendment(generation):
     client, control = generation
     base, frozen = create(client)
-    response = post(client, base + "/" + frozen["id"] + "/amendment-preview", {
-        "candidate_sha256": "a" * 64, "mode": "verify", "instruction": "核对事实",
-        "max_cost_cny": "1", "enable_reader": True,
-    })
+    response = post(
+        client,
+        base + "/" + frozen["id"] + "/amendment-preview",
+        {
+            "candidate_sha256": "a" * 64,
+            "mode": "verify",
+            "instruction": "核对事实",
+            "max_cost_cny": "1",
+            "enable_reader": True,
+        },
+    )
     assert response.status_code == 422, response.text
     assert control["calls"] == []

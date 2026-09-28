@@ -13,6 +13,8 @@ type Draft = {
   structured_output_mode: ProviderProfile["structured_output_mode"];
   is_local: boolean;
   credential_required: boolean;
+  authorization_scheme: "bearer" | "raw";
+  chat_template_enable_thinking: boolean | null;
   allow_story_data: boolean;
   supports_reasoning_effort: boolean;
   streaming_enabled: boolean;
@@ -34,6 +36,8 @@ type CapabilityDraft = {
 const emptyDraft: Draft = {
   id: "", display_name: "", base_url: "", protocol: "openai_chat_completions",
   structured_output_mode: "json_object", is_local: false, credential_required: true,
+  authorization_scheme: "bearer",
+  chat_template_enable_thinking: null,
   allow_story_data: true, supports_reasoning_effort: false, streaming_enabled: false,
   model_streaming: {},
   models: "", default_model: "",
@@ -139,6 +143,8 @@ export function ModelWorkspace() {
       structured_output_mode: profile.structured_output_mode,
       is_local: profile.is_local,
       credential_required: profile.credential_required,
+      authorization_scheme: profile.authorization_scheme ?? "bearer",
+      chat_template_enable_thinking: profile.chat_template_enable_thinking ?? null,
       allow_story_data: profile.allow_story_data,
       supports_reasoning_effort: profile.supports_reasoning_effort,
       streaming_enabled: profile.streaming_enabled,
@@ -190,6 +196,8 @@ export function ModelWorkspace() {
           id: draft.id.trim(), display_name: draft.display_name.trim(), base_url: draft.base_url.trim(),
           protocol: draft.protocol, structured_output_mode: draft.structured_output_mode,
           is_local: draft.is_local, credential_required: draft.credential_required,
+          authorization_scheme: draft.protocol === "openai_chat_completions" ? draft.authorization_scheme : "bearer",
+          chat_template_enable_thinking: draft.protocol === "openai_chat_completions" ? draft.chat_template_enable_thinking : null,
           allow_story_data: draft.allow_story_data, supports_reasoning_effort: draft.supports_reasoning_effort,
           streaming_enabled: draft.streaming_enabled,
           enabled: editingProfile?.enabled ?? true, default_model: defaultModel, built_in: false,
@@ -383,19 +391,27 @@ export function ModelWorkspace() {
     <section className="provider-profile-grid">{profiles.map((profile) => <article className={"provider-profile-card" + (editingProfileId === profile.id ? " editing-profile" : "")} key={profile.id}>
       <header><div><span className="card-label">{profile.protocol}</span><h3>{profile.display_name}</h3></div><span className={profile.enabled ? "status-ready" : "status-muted"}>{profile.enabled ? "已启用" : "已停用"}</span></header>
       <p><code>{profile.id}</code> · {profile.base_url}</p><p>默认模型：<strong>{profile.default_model}</strong></p>
+      <p>Authorization：{profile.authorization_scheme === "raw" ? "仅 API Key（不加 Bearer）" : "Bearer + API Key"}</p>
+      {profile.chat_template_enable_thinking != null && <p>自部署思考模式：{profile.chat_template_enable_thinking ? "开启（Writer 明确关闭时除外）" : "关闭"}</p>}
       <div className="model-chip-list">{profile.models.map((model) => <span key={model.id}>{model.label || model.id}{(model.streaming_enabled ?? profile.streaming_enabled) ? " · 流式" : ""}{model.verified_at ? " · capability 已验证" : " · capability 未验证"}</span>)}</div>
       <label>本次操作模型（{profile.display_name}）<select disabled={busy} value={selectedModel(profile)} onChange={(event) => setSelectedModels((current) => ({ ...current, [profile.id]: event.target.value }))}>{profile.models.map((model) => <option key={model.id} value={model.id}>{model.label && model.label !== model.id ? `${model.label} · ${model.id}` : model.id}</option>)}</select></label>
+      <p>所选模型容量：上下文 {profile.models.find((m) => m.id === selectedModel(profile))?.context_window?.toLocaleString() ?? "未知"} tokens；最大输出 {profile.models.find((m) => m.id === selectedModel(profile))?.max_output_tokens?.toLocaleString() ?? "未知"} tokens。容量声明与实际端点不符时，请先修正配置再生成。</p>
       <button disabled={busy || selectedModel(profile) === profile.default_model} onClick={() => void saveDefaultModel(profile)}>保存为默认模型</button>
       <p>测试和能力验证使用所选模型，均需另行授权。保存默认值仅用于后续新建配置；已有阶段的六角色模型不变。</p>
-      <p>{profile.is_local ? "本地端点；失败时不会自动切换到外部供应商。" : profile.allow_story_data ? "允许在作者逐次确认后发送故事数据。" : "禁止发送故事数据。"}</p>
+      <p>{profile.is_local ? "自部署／本地端点；失败时不会自动切换到外部供应商。" : profile.allow_story_data ? "允许在作者逐次确认后发送故事数据。" : "禁止发送故事数据。"}</p>
       {profile.credential_required && <div className="credential-row"><input type="password" autoComplete="new-password" placeholder={profile.has_api_key ? "API Key 已配置，可输入新值替换" : "输入 API Key"} value={keys[profile.id] ?? ""} onChange={(event) => setKeys((current) => ({ ...current, [profile.id]: event.target.value }))} /><button disabled={busy} onClick={() => void saveKey(profile.id)}>安全保存</button></div>}
       <div className="button-row"><button disabled={busy || !profile.enabled} onClick={() => void testProfile(profile)}>测试 API</button>{!profile.built_in && <><button disabled={busy} onClick={() => editProfile(profile)}>编辑配置</button><button className="danger-command" disabled={busy || !profile.profile_revision} onClick={() => void deleteProfile(profile)}>删除配置</button><button disabled={busy} onClick={() => void toggle(profile)}>{profile.enabled ? "停用配置" : "重新启用"}</button></>}</div>
       <details className="capability-verification"><summary>验证所选模型 capability</summary><p>先依据供应商正式资料填写容量，再由两次最小非故事请求核验结构化输出、usage、成功终态和输出上限终态。不会测试故事质量。</p><div className="form-grid"><label>上下文窗口<input disabled={busy} type="number" min="1" value={capabilityDraft(profile).contextWindow} onChange={(event) => updateCapabilityDraft(profile, { contextWindow: event.target.value })} /></label><label>最大输出 tokens<input disabled={busy} type="number" min="1" value={capabilityDraft(profile).maxOutputTokens} onChange={(event) => updateCapabilityDraft(profile, { maxOutputTokens: event.target.value })} /></label><label>费用上限 CNY<input disabled={busy} type="number" min="0.0001" max="1" step="0.0001" value={capabilityDraft(profile).maxCostCny} onChange={(event) => updateCapabilityDraft(profile, { maxCostCny: event.target.value })} /></label><label><input disabled={busy} type="checkbox" checked={capabilityDraft(profile).reasoningTokensBilledAsOutput} onChange={(event) => updateCapabilityDraft(profile, { reasoningTokensBilledAsOutput: event.target.checked })} />reasoning tokens 按输出计费</label><label className="span-2">容量资料来源<input disabled={busy} value={capabilityDraft(profile).sourceNote} placeholder="供应商文档名称、版本或链接" onChange={(event) => updateCapabilityDraft(profile, { sourceNote: event.target.value })} /></label></div><button disabled={busy || !profile.enabled} onClick={() => void verifyCapability(profile)}>授权 2 次最小请求并验证</button></details>
     </article>)}</section>
     <section id="provider-profile-form" className="provider-profile-form"><div className="section-title"><div><span className="card-label">{editingProfileId ? "编辑第三方配置" : "新增第三方配置"}</span><h3>{editingProfileId ? "修改 " + (draft.display_name || draft.id) : "OpenAI-compatible 优先"}</h3><p>{editingProfileId ? "可以修改访问地址、模型列表、默认模型、协议和结构化输出等设置；保存不会改变已有 API Key。" : "模型列表是作者可选项，不做厂商白名单。价格按人民币/百万 tokens 填写，用于费用计划；不清楚时请先向供应商核实。"}</p></div></div>
       <div className="form-grid"><label>配置 ID<input disabled={editingProfileId !== null} value={draft.id} placeholder="例如 openrouter-main" onChange={(event) => setDraft({ ...draft, id: event.target.value.toLowerCase() })} /></label><label>显示名称<input value={draft.display_name} placeholder="例如 OpenRouter 主账号" onChange={(event) => setDraft({ ...draft, display_name: event.target.value })} /></label><label className="span-2">Base URL<input value={draft.base_url} placeholder="https://example.com/v1" onChange={(event) => setDraft({ ...draft, base_url: event.target.value })} /></label><label>协议<select value={draft.protocol} onChange={(event) => { const protocol = event.target.value as Draft["protocol"]; setDraft({ ...draft, protocol, structured_output_mode: protocol === "openai_responses" ? "json_schema" : draft.structured_output_mode, streaming_enabled: protocol === "openai_chat_completions" ? draft.streaming_enabled : false, model_streaming: protocol === "openai_chat_completions" ? draft.model_streaming : Object.fromEntries(draftModelIds.map((id) => [id, false])) }); }}><option value="openai_chat_completions">OpenAI Chat Completions</option><option value="openai_responses">OpenAI Responses</option><option value="deepseek_chat">DeepSeek Chat</option></select></label><label>结构化输出<select value={draft.structured_output_mode} onChange={(event) => setDraft({ ...draft, structured_output_mode: event.target.value as Draft["structured_output_mode"] })}><option value="json_schema">JSON Schema</option><option value="json_object">JSON Object</option><option value="prompt_only">仅提示词约束</option></select></label><label className="span-2">模型 ID（区分大小写，逗号或换行分隔）<textarea value={draft.models} placeholder="例如 qwen3.8-max-preview" onChange={(event) => updateModelIds(event.target.value)} /></label><label>默认模型<input value={draft.default_model} placeholder="留空则使用第一个" onChange={(event) => setDraft({ ...draft, default_model: event.target.value })} /></label><label>输入价 CNY/百万<input type="number" min="0" step="0.0001" value={draft.input_price} onChange={(event) => setDraft({ ...draft, input_price: event.target.value })} /></label><label>输出价 CNY/百万<input type="number" min="0" step="0.0001" value={draft.output_price} onChange={(event) => setDraft({ ...draft, output_price: event.target.value })} /></label></div>
+      {draft.protocol === "openai_chat_completions" && <label>API Key 发送方式<select value={draft.authorization_scheme} onChange={(event) => setDraft({ ...draft, authorization_scheme: event.target.value as Draft["authorization_scheme"] })}><option value="bearer">Bearer + API Key（标准格式）</option><option value="raw">仅 API Key（不加 Bearer）</option></select></label>}
+      {draft.protocol === "openai_chat_completions" && <label>自部署思考模式<select value={draft.chat_template_enable_thinking == null ? "default" : String(draft.chat_template_enable_thinking)} onChange={(event) => setDraft({ ...draft, chat_template_enable_thinking: event.target.value === "default" ? null : event.target.value === "true" })}><option value="default">服务默认（不发送额外参数）</option><option value="false">关闭思考</option><option value="true">开启思考</option></select></label>}
+      <p>自部署思考模式使用 chat_template_kwargs.enable_thinking，仅在服务支持时设置。Writer 明确关闭推理时仍关闭思考。</p>
+      <p>API Key 框只填密钥，不加 Bearer、引号或文件路径。发送方式由配置决定；“仅 API Key”会将密钥原样放入 Authorization 请求头。</p>
+      <p>Base URL 支持 HTTP 和 HTTPS，例如 http://192.168.1.10:8000/v1 或 http://ollama:11434/v1。Chat Completions 地址只填到 /v1（或服务提供的基础路径），不要包含 /chat/completions，程序会自动追加。由项目后端连接该地址；Docker 部署时，127.0.0.1 指项目容器自身。自部署服务未设置密钥时，可取消“需要 API Key”。</p>
       {draftModelIds.length > 0 && <fieldset className="model-streaming-options" disabled={draft.protocol !== "openai_chat_completions"}><legend>逐模型流式响应</legend>{draftModelIds.map((id) => <label key={id}><input type="checkbox" checked={draft.model_streaming[id] ?? draft.streaming_enabled} onChange={(event) => setDraft({ ...draft, model_streaming: { ...draft.model_streaming, [id]: event.target.checked } })} />{id}</label>)}</fieldset>}
-      <div className="profile-flags"><label><input type="checkbox" checked={draft.is_local} onChange={(event) => setDraft({ ...draft, is_local: event.target.checked })} />本地端点</label><label><input type="checkbox" checked={draft.credential_required} onChange={(event) => setDraft({ ...draft, credential_required: event.target.checked })} />需要 API Key</label><label><input type="checkbox" checked={draft.allow_story_data} onChange={(event) => setDraft({ ...draft, allow_story_data: event.target.checked })} />允许经作者确认后发送故事数据</label><label><input type="checkbox" checked={draft.supports_reasoning_effort} onChange={(event) => setDraft({ ...draft, supports_reasoning_effort: event.target.checked })} />支持 reasoning_effort</label><label><input type="checkbox" disabled={draft.protocol !== "openai_chat_completions"} checked={draft.streaming_enabled} onChange={(event) => setDraft({ ...draft, streaming_enabled: event.target.checked })} />新模型默认流式</label></div>
+      <div className="profile-flags"><label><input type="checkbox" checked={draft.is_local} onChange={(event) => setDraft({ ...draft, is_local: event.target.checked })} />自部署／本地端点</label><label><input type="checkbox" checked={draft.credential_required} onChange={(event) => setDraft({ ...draft, credential_required: event.target.checked })} />需要 API Key</label><label><input type="checkbox" checked={draft.allow_story_data} onChange={(event) => setDraft({ ...draft, allow_story_data: event.target.checked })} />允许经作者确认后发送故事数据</label><label><input type="checkbox" checked={draft.supports_reasoning_effort} onChange={(event) => setDraft({ ...draft, supports_reasoning_effort: event.target.checked })} />支持 reasoning_effort</label><label><input type="checkbox" disabled={draft.protocol !== "openai_chat_completions"} checked={draft.streaming_enabled} onChange={(event) => setDraft({ ...draft, streaming_enabled: event.target.checked })} />新模型默认流式</label></div>
       <div className="button-row">{editingProfileId && <button disabled={busy} onClick={cancelEdit}>取消编辑</button>}<button className="primary-button" disabled={busy} onClick={() => void saveProfile()}>{busy ? "正在保存…" : editingProfileId ? "保存修改" : "保存第三方配置"}</button></div>
     </section>
   </div>;
@@ -422,6 +438,8 @@ function sanitizeDraft(value: unknown): Draft | null {
     structured_output_mode: candidate.structured_output_mode as Draft["structured_output_mode"],
     is_local: Boolean(candidate.is_local),
     credential_required: Boolean(candidate.credential_required),
+    authorization_scheme: candidate.protocol === "openai_chat_completions" && candidate.authorization_scheme === "raw" ? "raw" : "bearer",
+    chat_template_enable_thinking: candidate.protocol === "openai_chat_completions" && typeof candidate.chat_template_enable_thinking === "boolean" ? candidate.chat_template_enable_thinking : null,
     allow_story_data: Boolean(candidate.allow_story_data),
     supports_reasoning_effort: Boolean(candidate.supports_reasoning_effort),
     streaming_enabled: Boolean(candidate.streaming_enabled),
@@ -440,6 +458,8 @@ function draftSummary(value: Draft): string[] {
     `配置：${value.display_name || value.id || "未命名"}`,
     `地址：${value.base_url || "未填写"}`,
     `协议：${value.protocol}`,
+    `Authorization：${value.authorization_scheme === "raw" ? "仅 API Key（不加 Bearer）" : "Bearer + API Key"}`,
+    `自部署思考模式：${value.chat_template_enable_thinking == null ? "服务默认" : value.chat_template_enable_thinking ? "开启" : "关闭"}`,
     `模型：${value.models.split(/[ ,\n]/u).filter(Boolean).length} 个`,
     "API Key：未保存到草稿",
   ];

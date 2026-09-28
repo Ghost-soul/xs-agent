@@ -117,7 +117,11 @@ def request_for(
     model, output, _ = model_for(spec, action)
     option = option_for(profile, model)
     if output > (option.max_output_tokens or 0):
-        raise WorkflowError("本次输出容量超过模型能力，不会静默调整")
+        raise WorkflowError(
+            f"{role_for(action)} 模型 {model} 本次输出上限 {output:,} tokens "
+            f"超过模型能力（端点配置上限 {option.max_output_tokens or 0:,} tokens）；"
+            "请在创作设置中按模型容量调整后重新预览，不会静默修改或发送请求"
+        )
     support = option.supports_reasoning_effort
     if support is None:
         support = profile.supports_reasoning_effort
@@ -178,3 +182,20 @@ def request_preview(request: ModelRequest) -> str:
     # All protocol renderers add fewer framing bytes than this local envelope;
     # the actual serialized HTTP body is independently checked before network I/O.
     return json_text(request.model_dump(mode="json"))
+
+
+def current_capacity_blocker(
+    request: ModelRequest, frozen: ProviderProfile, current: ProviderProfile | None,
+) -> str | None:
+    if current is None or (current.id, current.base_url, current.protocol) != (
+        frozen.id, frozen.base_url, frozen.protocol,
+    ):
+        return None
+    option = next((m for m in current.models if m.id == request.model), None)
+    maximum = option.max_output_tokens if option else None
+    if maximum is not None and request.max_output_tokens > maximum:
+        return (
+            f"端点当前输出上限为 {maximum:,} tokens，原请求为 {request.max_output_tokens:,}；"
+            "不能原样发送，请按新容量重新预览。已完成成果与原请求保持，不静默改参。"
+        )
+    return None

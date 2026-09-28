@@ -1,13 +1,14 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerationWorkspace } from "./GenerationWorkspace";
+import { ApiError } from "./api";
 import { deleteLocalDraft, readLocalDraft, writeLocalDraft } from "./localDrafts";
 
 const mocks = vi.hoisted(() => ({ api: vi.fn(), write: vi.fn() }));
 vi.mock("./api", async (original) => ({ ...await original<typeof import("./api")>(), api: mocks.api, StableWriteOperationKeys: class { request = mocks.write; } }));
 vi.mock("./localDrafts", () => ({ readLocalDraft: vi.fn().mockResolvedValue(null), writeLocalDraft: vi.fn().mockResolvedValue(undefined), deleteLocalDraft: vi.fn().mockResolvedValue(undefined), sha256: vi.fn().mockResolvedValue("body-hash") }));
 const spec = { base_version_id: "base-version", focus_card_id: "girls_love_gl", direction: "爱情影响行动", character_ids: ["a", "b"], viewpoint: "林青", relationship_scope: "explore", relationship_character_ids: ["a", "b"], profile_id: "fixture", chief_model: "m", writer_model: "m", max_cost_cny: "10" };
-const setup = { configuration_revision: "author-intent-v1", context_budget_revision: "chief-focus-v4", output_budget_revision: "chief-output-v1", automation_revision: "stage-auto-v1", base_version_id: "base-version", version: 1, characters: [{ id: "a", name: "林青" }, { id: "b", name: "江月" }], narrative_position: {}, style: { selection_mode: "specified", genre_card_id: "girls_love_gl", secondary_genre_card_ids: [], matched_cards: [{ id: "girls_love_gl", name: "百合" }] } };
+const setup = { craft_revision: "stage-craft-v1", configuration_revision: "author-intent-v1", context_budget_revision: "chief-focus-v4", output_budget_revision: "chief-output-v1", automation_revision: "stage-auto-v1", base_version_id: "base-version", version: 1, characters: [{ id: "a", name: "林青" }, { id: "b", name: "江月" }], narrative_position: {}, style: { selection_mode: "specified", genre_card_id: "girls_love_gl", secondary_genre_card_ids: [], matched_cards: [{ id: "girls_love_gl", name: "百合" }] } };
 const saved = { id: "batch", project_id: "p", status: "needs_attention", spec, revision: "genre-led-single-chapter-v1", preview_sha256: "preview", snapshot: { maximum_cost_cny: "1.20", plan_input_tokens: 45000, blockers: [] }, state: { candidate_id: "candidate", message: "复核不可用，正文已保存" }, next_action: null, artifacts: [{ id: "candidate", kind: "candidate", sha256: "candidate-sha", payload: { body: "林青希望她留下。", complete: true } }], calls: [] };
 
 afterEach(cleanup);
@@ -28,6 +29,113 @@ beforeEach(() => {
 });
 
 describe("genre generation workspace", () => {
+  it("creates a replacement preview by default and explains retained unknown costs", async () => {
+    const next = { ...saved, id: "new-batch", status: "draft", next_action: "plan", state: { stage_replacement_id: "replace" }, artifacts: [{ id: "replace", kind: "stage_replacement", payload: { replaced_stages: [{ batch_id: "batch" }], unknown_call_ids: ["unknown-call"] } }] };
+    mocks.write.mockResolvedValueOnce(next);
+    render(<GenerationWorkspace projectId="p" onAdopted={vi.fn()} />);
+    expect(await screen.findByText(/新预览通过预检后，默认覆盖/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("建立新预览（不调用模型）")).toBeEnabled());
+    fireEvent.click(screen.getByText("建立新预览（不调用模型）"));
+    expect(await screen.findByText(/已接替 1 个旧阶段/)).toHaveTextContent("1 次旧调用结果未确认");
+    expect(screen.getByText(/已接替 1 个旧阶段/)).toHaveTextContent("新阶段费用上限单独计算");
+    expect(mocks.write).toHaveBeenCalledTimes(1);
+    expect(mocks.write.mock.calls[0][0]).toBe("/api/projects/p/generation-batches/random-preview");
+    expect(screen.queryByLabelText("关闭未知状态")).toBeNull();
+    expect(screen.getByRole("button", { name: "授权并开始一章创作" })).toBeDisabled();
+  });
+
+  it("keeps a superseded manuscript readable and opens its replacement", async () => {
+    const old = { ...saved, status: "archived", state: { ...saved.state, stage_superseded_id: "superseded" }, artifacts: [...saved.artifacts, { id: "superseded", kind: "stage_superseded", payload: { replacement_batch_id: "new-batch" } }], calls: [{ id: "call", action: "memory:2", status: "outcome_uncertain", actual_cost_cny: null }] };
+    const next = { ...saved, id: "new-batch", status: "draft", state: {}, artifacts: [], next_action: "plan" };
+    const original = mocks.api.getMockImplementation()!;
+    mocks.api.mockImplementation(async (path: string) => path.endsWith("/batch") ? old : path.endsWith("/new-batch") ? next : original(path));
+    render(<GenerationWorkspace projectId="p" onAdopted={vi.fn()} />);
+    expect(await screen.findByRole("textbox", { name: "正文" })).toHaveAttribute("readOnly");
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "正文" })).toHaveValue("林青希望她留下。"));
+    expect(screen.getByText("下载正文")).toBeEnabled();
+    expect(screen.queryByLabelText("关闭未知状态")).toBeNull();
+    fireEvent.click(screen.getByText("打开接替阶段"));
+    expect(await screen.findByRole("button", { name: "授权并开始一章创作" })).toBeDisabled();
+    expect(mocks.write).not.toHaveBeenCalled();
+  });
+
+  it("opens an older blocking batch and closes unknown without triggering a retry", async () => {
+    const blocking = { call_id: "old-call", batch_id: "old-batch", action: "memory:2", model: "m", status: "outcome_uncertain", started_at: "2026-09-28T04:10:45Z" };
+    const draft = { ...saved, status: "draft", state: {}, artifacts: [], next_action: "plan", dispatch_blockers: [blocking] };
+    const old = { ...saved, id: "old-batch", status: "outcome_uncertain", step_recovery_available: true, calls: [{ id: "old-call", action: "memory:2", status: "outcome_uncertain" }] };
+    const original = mocks.api.getMockImplementation()!;
+    mocks.api.mockImplementation(async (path: string) => path.endsWith("/batch") ? draft : path.endsWith("/old-batch") ? old : path.includes("step-recovery-preview") ? { blockers: ["仅测试关闭入口"], max_cost_cny: "10" } : original(path));
+    render(<GenerationWorkspace projectId="p" onAdopted={vi.fn()} />);
+    expect(await screen.findByLabelText("阻塞新创作的调用")).toHaveTextContent("Memory 提取第 2 单元事实");
+    fireEvent.click(screen.getByText("打开阻塞阶段"));
+    const close = await screen.findByText("记录核对结论并关闭未知状态");
+    expect(close).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("核对结论"), { target: { value: "已核查结束，费用未明" } });
+    expect(close).toBeDisabled();
+    fireEvent.click(screen.getByLabelText("我已核查原调用不再执行，理解费用可能仍未知；本次仅关闭状态，不重试"));
+    mocks.write.mockResolvedValueOnce({ ...old, status: "needs_attention", step_recovery_available: false, calls: [{ ...old.calls[0], status: "uncertain_closed" }] });
+    fireEvent.click(close);
+    expect(await screen.findByText(/已记录核对结论并关闭未知状态，没有重试/)).toBeVisible();
+    expect(mocks.write).toHaveBeenCalledTimes(1);
+    expect(mocks.write.mock.calls[0][0]).toBe("/api/projects/p/generation-batches/old-batch/resolve-unknown");
+    expect(JSON.parse(mocks.write.mock.calls[0][1].body)).toEqual({ confirmed: true, note: "已核查结束，费用未明" });
+    expect(screen.queryByLabelText("关闭未知状态")).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "候选正文" }));
+    expect(screen.getByRole("textbox", { name: "正文" })).toHaveValue("林青希望她留下。");
+  });
+
+  it("refreshes blockers after an authorization conflict without resending", async () => {
+    const draft = { ...saved, status: "draft", state: {}, artifacts: [], next_action: "plan" };
+    const original = mocks.api.getMockImplementation()!;
+    mocks.api.mockImplementation(async (path: string) => path.endsWith("/batch") ? draft : original(path));
+    await act(async () => { render(<GenerationWorkspace projectId="p" onAdopted={vi.fn()} />); });
+    mocks.api.mockImplementation(async (path: string) => path.endsWith("/batch") ? { ...draft, dispatch_blockers: [{ call_id: "call", batch_id: "old", action: "plan", model: "m", status: "executing", started_at: "2026-09-28T04:10:45Z" }] } : original(path));
+    mocks.write.mockRejectedValueOnce(new ApiError("调用执行中", 409, "request", null));
+    fireEvent.click(screen.getByLabelText("确认本批模型、完整题材卡及选中故事资料的外发范围与费用上限"));
+    fireEvent.click(screen.getByText("授权并开始一章创作"));
+    expect(await screen.findByLabelText("阻塞新创作的调用")).toHaveTextContent("执行中");
+    expect(screen.queryByLabelText("关闭未知状态")).toBeNull();
+    expect(mocks.write).toHaveBeenCalledTimes(1);
+  });
+
+  it("previews the opt-in trial with format requirements and no model call", async () => {
+    render(<GenerationWorkspace projectId="p" onAdopted={vi.fn()} />);
+    const checkbox = await screen.findByLabelText("试验：要求输出格式，但跳过本地格式校验");
+    expect(checkbox).not.toBeChecked();
+    fireEvent.click(checkbox);
+    fireEvent.click(screen.getByText("建立新预览（不调用模型）"));
+    await waitFor(() => expect(mocks.write).toHaveBeenCalledOnce());
+    expect(mocks.write.mock.calls[0][0]).toBe("/api/projects/p/generation-batches/trial-preview?random_narratives=true");
+    expect(JSON.parse(mocks.write.mock.calls[0][1].body)).not.toHaveProperty("format_trial");
+    expect(JSON.parse(mocks.write.mock.calls[0][1].body).craft_policy).toBe("stage-craft-v1");
+  });
+
+  it("shows raw trial material and reading without exposing adoption or fact editing", async () => {
+    const trial = { ...saved, revision: "genre-led-longform-v1", spec: { ...spec, stage_mode: "longform-v1", unit_limit: 5 },
+      snapshot: { ...saved.snapshot, format_trial_contract: { revision: "format-requested-unchecked-v1" } },
+      state: { ...saved.state, plan_id: "plan", units_id: "units", units_finished: true },
+      artifacts: [...saved.artifacts,
+        { id: "plan", kind: "plan", payload: { scenes: [{ character_ids: [] }], raw_response: 'Chief 原文 {未闭合', trial_schedule: { fallback: true } } },
+        { id: "units", kind: "units", payload: { items: [{ complete: true, note_id: "note" }] } },
+        { id: "note", kind: "trial_note", payload: { text: "尚未校验的连续性记录", unit: 1 } },
+      ],
+    };
+    const original = mocks.api.getMockImplementation()!;
+    mocks.api.mockImplementation(async (path: string) => path.endsWith("/batch") ? trial : original(path));
+    render(<GenerationWorkspace projectId="p" onAdopted={vi.fn()} />);
+    expect(await screen.findByText(/未校验连续性笔记 1 个/)).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "正文" })).toHaveAttribute("readOnly");
+    expect(screen.getByText("下载正文")).toBeEnabled();
+    fireEvent.click(screen.getByRole("tab", { name: "故事方案" }));
+    expect(screen.getByText('Chief 原文 {未闭合')).toBeVisible();
+    expect(screen.queryByText("编辑 Chief 方案与故事方向")).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "笔记与反馈" }));
+    expect(screen.getByText("尚未校验的连续性记录")).toBeVisible();
+    expect(screen.queryByText("预览逐章采用")).toBeNull();
+    expect(mocks.api.mock.calls.some(([path]) => String(path).includes("stage-chapters"))).toBe(false);
+    expect(mocks.write).not.toHaveBeenCalled();
+  });
+
   it.each(["new", "blocked", "failed"])("uses manual selections for a %s preview without changing the frozen batch", async (entry) => {
     const cards = [{ id: "world", name: "奇幻", layer: "genre" }, ...["百合", "种田文", "推理"].map((name, i) => ({ id: `n${i}`, name, layer: "narrative" }))];
     const frozen = { ...saved, spec: { ...spec, card_selection_policy: "separate-v1", narrative_card_ids: ["old"] }, snapshot: { ...saved.snapshot, cards: [{ id: "old", name: "旧卡" }] } };
@@ -212,7 +320,7 @@ describe("genre generation workspace", () => {
     fireEvent.click(screen.getByText("保存方案（不调用模型）"));
     await screen.findByText("已保存新的故事方案版本，Chief 原稿保留；尚未调用模型。");
     expect(screen.queryByText("恢复方案草稿")).toBeNull();
-    expect(screen.getByLabelText("答复与修改说明")).toHaveValue("");
+    await waitFor(() => expect(screen.getByLabelText("答复与修改说明")).toHaveValue(""));
     expect(readLocalDraft).not.toHaveBeenCalled();
     finishCleanup();
     await waitFor(() => expect(screen.getByText("刷新状态")).toBeEnabled());
@@ -307,22 +415,23 @@ describe("genre generation workspace", () => {
     expect(mocks.write).not.toHaveBeenCalled();
   });
 
-  it("holds new previews until the matching backend is loaded", async () => {
+  it.each(["configuration_revision", "craft_revision"] as const)("holds new previews when backend capability %s is absent", async (missing) => {
     const previous = mocks.api.getMockImplementation()!;
-    mocks.api.mockImplementation(async (path: string, ...args: unknown[]) => path.endsWith("/setup") ? { ...setup, configuration_revision: undefined } : previous(path, ...args));
+    mocks.api.mockImplementation(async (path: string, ...args: unknown[]) => path.endsWith("/setup") ? { ...setup, [missing]: undefined } : previous(path, ...args));
     render(<GenerationWorkspace projectId="p" onAdopted={vi.fn()} />);
-    expect(await screen.findByText("简化创作设置需要加载新版后端；已有批次仍可查看和审核。")).toBeTruthy();
+    expect(await screen.findByText("阶段规模与新版创作合同需要加载新版后端；已有批次仍可查看和审核。")).toBeTruthy();
     expect(screen.getByText("建立新预览（不调用模型）")).toBeDisabled();
     expect(await screen.findByDisplayValue("林青希望她留下。")).toBeTruthy();
     expect(mocks.write).not.toHaveBeenCalled();
   });
 
-  it("sets a unit limit without assigning a word count", async () => {
-    render(<GenerationWorkspace projectId="p" onAdopted={vi.fn()} />);
+  it("sets the unit cap and stage scale separately from legacy chapter targets", async () => {
+    await act(async () => { render(<GenerationWorkspace projectId="p" onAdopted={vi.fn()} />); });
+    await screen.findByDisplayValue("林青希望她留下。");
     fireEvent.change(await screen.findByLabelText("叙事单元上限"), { target: { value: "5" } });
     fireEvent.click(screen.getByText("建立新预览（不调用模型）"));
     await waitFor(() => expect(mocks.write).toHaveBeenCalledTimes(1));
-    expect(JSON.parse(mocks.write.mock.calls[0][1].body)).toMatchObject({ stage_mode: "longform-v1", length_policy: "unit-v1", chapter_count: null, target_characters: null, unit_limit: 5, milestone_unit: null });
+    expect(JSON.parse(mocks.write.mock.calls[0][1].body)).toMatchObject({ stage_mode: "longform-v1", craft_policy: "stage-craft-v1", stage_scale: { min_characters: 15000, max_characters: 20000, preferred_units: 5 }, length_policy: "unit-v1", chapter_count: null, target_characters: null, unit_limit: 5, milestone_unit: null });
   });
 
   it("new previews default to automatic cast and uninterrupted finite execution", async () => {

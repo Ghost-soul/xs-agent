@@ -21,25 +21,34 @@ from novel_writer.db.models import GenerationBatchRecord, GenerationCallRecord
 from novel_writer.generation.amendments import authorized_spec as amendment_spec
 from novel_writer.generation.budget import (
     cost_for,
+    current_capacity_blocker,
     option_for,
     validate_capacity,
 )
 from novel_writer.generation.content import (
     checked_body,
     fingerprint,
+    json_text,
     parse_object,
     parse_plan,
     review_result,
 )
+from novel_writer.generation.craft_models import CraftSpec, read_spec
 from novel_writer.generation.input_recovery import effective_spec
 from novel_writer.generation.memory_recovery import authorized_spec, recovery_slot
-from novel_writer.generation.novel import parser_for, role_for
+from novel_writer.generation.novel import role_for
+from novel_writer.generation.output_contract import KEY as OUTPUT_KEY
+from novel_writer.generation.output_failures import (
+    failure_diagnostic,
+    refusal_message,
+    response_parser,
+)
+from novel_writer.generation.plan_format import PlanIncompleteError, PlanQuestionFormatError
 from novel_writer.generation.request_preparation import InputCapacityError, prepare_request
 from novel_writer.generation.response_journal import ResponseJournal
 from novel_writer.generation.schemas import (
     LONGFORM_REVISION,
     NOVEL_REVISION,
-    FrozenGenerationSpec,
     GenerationSpec,
 )
 from novel_writer.generation.service import GenerationService
@@ -53,6 +62,7 @@ from novel_writer.generation.stage import (
 from novel_writer.generation.step_recovery import authorized_spec as recovery_spec
 from novel_writer.generation.step_recovery import checkpoint, pending_replay
 from novel_writer.providers.base import ModelRequest, ModelResponse, ProviderResponseError
+from novel_writer.providers.transport import network_timeout
 from novel_writer.services.errors import WorkflowError
 from novel_writer.services.provider_profiles import (
     ProviderProfile,
@@ -478,6 +488,7 @@ class GenerationRuntime:
                 batch.status = "paused"
                 return None
             await service.assert_current(batch)
+            await service.assert_delivered(batch)
             spec = await effective_spec(service, batch)
             spec = await amendment_spec(service, batch, spec)
             spec = await authorized_spec(service, batch, spec)
@@ -588,6 +599,15 @@ class GenerationRuntime:
                 batch.status = "needs_attention"
                 batch.state = {**batch.state, "message": f"本次尚未发送模型请求：{error}"}
                 return None
+            adjustment = await service.artifact(batch, "plan_adjustment")
+            if (
+                adjustment
+                and adjustment.payload.get("action") == action
+                and adjustment.payload.get("plan_sha256") == (plan.sha256 if plan else None)
+                and adjustment.payload.get("model_request_sha256")
+                != fingerprint(request.model_dump(mode="json"))
+            ):
+                raise WorkflowError("剩余请求已偏离作者预检，请重新保存方案进行预览")
             call = GenerationCallRecord(
                 project_id=batch.project_id,
                 batch_id=batch.id,
@@ -600,8 +620,20 @@ class GenerationRuntime:
                     "resume_checkpoint": checkpoint(batch.state),
                     "resume_checkpoint_sha256": fingerprint(checkpoint(batch.state)),
                     "model_request": request.model_dump(mode="json"),
+                    **(
+                        {"output_format": reports["output_format"], OUTPUT_KEY: reports[OUTPUT_KEY]}
+                        if "output_format" in reports else {}
+                    ),
                     "action_slots": slots,
                     "feedback_options": {
+                        **(
+                            {
+                                "craft_policy": spec.craft_policy,
+                                "stage_scale": spec.stage_scale.model_dump(mode="json"),
+                            }
+                            if isinstance(spec, CraftSpec)
+                            else {}
+                        ),
                         "feedback_policy": spec.feedback_policy,
                         "writing_policy": spec.writing_policy,
                         "narrative_policy": spec.narrative_policy,
@@ -617,9 +649,23 @@ class GenerationRuntime:
                     "effective_input_limit": spec.input_limit,
                     "amendment_authorized_sha256": batch.state.get("amendment_authorized_sha256"),
                     "edit_scope": scope,
-                    **{key: reports[key] for key in (
-                        "prompt_template_source", "prompt_template_revision",
-                    ) if key in reports},
+                    **{
+                        key: reports[key]
+                        for key in (
+                            "prompt_template_source",
+                            "prompt_template_revision",
+                            "writer_scale",
+                            "creative_autonomy_contract",
+                            "prompt_rules_contract",
+                            "prompt_program_settings",
+                            "unit_delivery_contract",
+                            "reliability_contract",
+                            "format_trial_contract",
+                            "progression_contract",
+                            "structured_delivery",
+                        )
+                        if key in reports
+                    },
                     **(
                         {"knowledge_retrieval": reports["knowledge_retrieval"]}
                         if "knowledge_retrieval" in reports
@@ -676,9 +722,25 @@ class GenerationRuntime:
         counting: dict[str, Any],
         api_key: str,
     ) -> ModelResponse:
+        from novel_writer.generation.reliability_contract import dispatch_profile
+
+        async with self.database.session() as session:
+            saved_call = await session.get(GenerationCallRecord, call_id)
+            assert saved_call is not None
+            profile = dispatch_profile(profile, saved_call.request)
+        progress: dict[str, Any] = {
+            "call_id": str(call_id), "received_bytes": 0,
+            "started_at": datetime.now(UTC).isoformat(), "phase": "waiting_headers",
+            "total_timeout_seconds": spec.timeout_seconds,
+            "read_timeout_seconds": spec.timeout_seconds,
+        }
+        observed_stream: ProgressStream | None = None
+
         async def before_send(http_request: httpx.Request) -> None:
             if self.draining:
                 raise WorkflowError("服务正在安全停止，本次未发送供应商请求")
+            if reason := current_capacity_blocker(request, profile, self.profiles.get(profile.id)):
+                raise WorkflowError(reason)
             wire = http_request.content.decode("utf-8")
             count = validate_capacity(wire, request, spec, profile, counting)
             async with self.database.session() as session, session.begin():
@@ -689,26 +751,45 @@ class GenerationRuntime:
                     fingerprint(wire) != call.request["replay_wire_sha256"]
                 ):
                     raise WorkflowError("恢复请求与原发送内容不一致，未发送供应商请求")
-                call.request = {**call.request, "wire_body": wire, "wire_input_tokens": count}
+                call.request = {
+                    **call.request, "wire_body": wire, "wire_input_tokens": count,
+                    "transport_observation": dict(progress),
+                }
                 call.request_sha256 = fingerprint(
                     {"wire_body": wire, "batch": call.request["batch_preview_sha256"]}
                 )
 
-        async def transport_progress(received: int) -> None:
+        async def transport_progress(received: int, *, activity: bool = True) -> None:
+            now = datetime.now(UTC).isoformat()
+            if observed_stream is not None:
+                received = observed_stream.received_bytes
+                idle = observed_stream.max_idle_seconds
+                if not activity and observed_stream.last_received_monotonic is not None:
+                    idle = max(idle, monotonic() - observed_stream.last_received_monotonic)
+                progress["max_stream_idle_seconds"] = round(idle, 3)
+            progress.update(received_bytes=received)
+            if received and (activity or observed_stream is not None):
+                progress.setdefault(
+                    "first_received_at",
+                    observed_stream.first_received_at if observed_stream else now,
+                )
+                progress.update(
+                    last_received_at=observed_stream.last_received_at if observed_stream else now
+                )
+                if progress["phase"] in {"waiting_headers", "waiting_body", "receiving"}:
+                    progress["phase"] = "receiving"
             try:
                 async with asyncio.timeout(1), self.database.session() as session, session.begin():
                     call = await session.get(GenerationCallRecord, call_id)
                     assert call is not None
+                    call.request = {**call.request, "transport_observation": dict(progress)}
                     service = GenerationService(session, self.profiles)
                     batch = await service.batch(call.project_id, call.batch_id, lock=True)
                     batch.state = {
                         **batch.state,
-                        "transport": {
-                            "call_id": str(call_id),
-                            "received_bytes": received,
-                            "last_received_at": datetime.now(UTC).isoformat(),
-                        },
-                        "message": "已收到供应商响应，正在接收完整内容",
+                        "transport": dict(progress),
+                        "message": "已收到供应商响应，正在接收完整内容" if received
+                        else "已连接供应商，等待响应内容",
                     }
             except (SQLAlchemyError, OSError, TimeoutError):
                 # Progress is advisory. Losing this write must not abort an
@@ -716,8 +797,14 @@ class GenerationRuntime:
                 self.logger.warning("transport_progress.write_deferred", call_id=str(call_id))
 
         async def observe_response(response: httpx.Response) -> None:
-            if isinstance(response.stream, httpx.AsyncByteStream):
-                response.stream = ProgressStream(response.stream, transport_progress)
+            nonlocal observed_stream
+            progress.update(headers_received_at=datetime.now(UTC).isoformat(), phase="waiting_body")
+            await transport_progress(0)
+            if response.is_stream_consumed:
+                await transport_progress(len(response.content))
+            elif isinstance(response.stream, httpx.AsyncByteStream):
+                observed_stream = ProgressStream(response.stream, transport_progress)
+                response.stream = observed_stream
 
         # Per-model reasoning capability, rather than only the profile default.
         option = option_for(profile, request.model)
@@ -726,11 +813,19 @@ class GenerationRuntime:
                 update={"supports_reasoning_effort": option.supports_reasoning_effort}
             )
         async with httpx.AsyncClient(
-            timeout=httpx.Timeout(90, connect=15),
+            timeout=network_timeout(spec.timeout_seconds),
             event_hooks={"request": [before_send], "response": [observe_response]},
         ) as client:
             provider = build_provider(profile, client=client)
-            return await provider.generate(request, api_key)
+            try:
+                result = await provider.generate(request, api_key)
+            except (Exception, asyncio.CancelledError):
+                progress.update(phase="interrupted", ended_at=datetime.now(UTC).isoformat())
+                await transport_progress(progress["received_bytes"], activity=False)
+                raise
+            progress.update(phase="received", ended_at=datetime.now(UTC).isoformat())
+            await transport_progress(progress["received_bytes"], activity=False)
+            return result
 
     async def compile_response(self, batch_id: UUID, call_id: UUID) -> None:
         async with self.database.session() as session, session.begin():
@@ -741,7 +836,9 @@ class GenerationRuntime:
             batch = await service.batch(batch.project_id, batch_id, lock=True)
             if call.batch_id != batch.id or call.response is None:
                 raise WorkflowError("保存响应不属于此批次")
-            parser = parser_for(batch.revision, call.action)
+            if batch.status in {"adopted", "archived"}:
+                return
+            parser = response_parser(batch, call)
             binding = f"{call.id}:{parser}"
             if binding in batch.state.get("compiled", []):
                 return
@@ -764,7 +861,21 @@ class GenerationRuntime:
                 not in {"length", "max_tokens", "max_output_tokens"}
                 and terminal.get("terminal_status") not in {"failed", "incomplete"}
             )
+            refused = refusal_message(call)
+            format_receipt = None
             try:
+                if refused:
+                    raise WorkflowError(refused)
+                from novel_writer.generation.chief_json import (
+                    PARSER_REVISION,
+                    parse_chief_json,
+                    saved_schema,
+                )
+
+                if complete and parser == PARSER_REVISION:
+                    parsed = parse_chief_json(body, saved_schema(call.request))
+                    body = json_text(parsed.value)
+                    format_receipt = parsed.receipt
                 if batch.revision == LONGFORM_REVISION:
                     from novel_writer.generation.longform import compile_longform
 
@@ -792,7 +903,7 @@ class GenerationRuntime:
                         )
                     if not complete:
                         raise WorkflowError("供应商响应不完整，已保存可见内容；不会自动重试")
-                    spec = FrozenGenerationSpec.model_validate(batch.spec)
+                    spec = read_spec(batch.spec)
                     if call.action == "plan":
                         plan = parse_plan(body, spec.character_ids)
                         await service.append(batch, "plan", plan.model_dump(mode="json"))
@@ -821,6 +932,9 @@ class GenerationRuntime:
                 batch.state = {
                     **batch.state,
                     "message": (
+                        "试验结果已保存；未做本地输出格式校验，笔记未写入事实库"
+                        if batch.snapshot.get("format_trial_contract")
+                        else
                         "已保存结果；部分报告失败，已跳过依赖动作，请核对事实和失败诊断"
                         if batch.state.get("dependency_skip_id")
                         else "Chief 方案已保存，尚未生成本批正文；请核对后继续"
@@ -834,10 +948,20 @@ class GenerationRuntime:
                     or raw.get("error_code") == "outcome_uncertain"
                 )
                 call.status = "outcome_uncertain" if uncertain else "local_failure"
-                call.error_code = raw.get("error_code") or "local_validation_failed"
+                call.error_code = raw.get("error_code") or (
+                    "provider_refusal" if refused else "plan_output_incomplete"
+                    if isinstance(error, PlanIncompleteError) else "plan_question_format_invalid"
+                    if isinstance(error, PlanQuestionFormatError) else "local_validation_failed"
+                )
+                error_message = str(error)[:1000]
+                diagnostic = failure_diagnostic(call)
+                if diagnostic:
+                    if diagnostic["code"] == "plan_output_incomplete":
+                        call.error_code = "plan_output_incomplete"
+                    error_message = diagnostic["message"]
                 batch.status = "outcome_uncertain" if uncertain else "needs_attention"
                 batch.next_action = None
-                batch.state = {**batch.state, "message": f"已保存响应，{str(error)[:1000]}"}
+                batch.state = {**batch.state, "message": f"已保存响应，{error_message}"}
                 if (
                     complete
                     and (
@@ -860,6 +984,20 @@ class GenerationRuntime:
                         "message": batch.state["message"]
                         + "；已跳过依赖动作，继续原授权的独立 Reader 冷读",
                     }
+            if call.status == "completed" and role_for(call.action) == "memory":
+                report = await service.artifact(
+                    batch, "handoff" if batch.revision == LONGFORM_REVISION else "memory"
+                )
+                notes = report.payload.get("format_notes", []) if report else []
+                if notes:
+                    format_receipt = {"parser_revision": parser, "conversions": notes}
+            if format_receipt and call.status == "completed":
+                batch.state = {
+                    **batch.state,
+                    "message": (
+                        "已本地兼容输出表示，原响应保留；" + batch.state.get("message", "")
+                    ),
+                }
             if batch.pause_requested and batch.status == "queued":
                 batch.status = "paused"
             await service.append(
@@ -873,6 +1011,7 @@ class GenerationRuntime:
                     "error_code": call.error_code,
                     "message": batch.state.get("message"),
                     "resume_state": checkpoint(batch.state),
+                    **({"format_compatibility": format_receipt} if format_receipt else {}),
                 },
             )
 
@@ -884,15 +1023,19 @@ class GenerationRuntime:
                 call.status = status
                 call.error_code = message[:80]
                 call.finished_at = datetime.now(UTC)
-            if batch:
+            if batch and batch.status not in {"adopted", "archived"}:
                 batch.status = "outcome_uncertain" if status == "outcome_uncertain" else "failed"
                 batch.next_action = None
-                batch.state = {**batch.state, "message": message[:1000]}
+                diagnostic = failure_diagnostic(call) if call else None
+                batch.state = {
+                    **batch.state,
+                    "message": diagnostic["message"] if diagnostic else message[:1000],
+                }
 
     async def local_failure(self, batch_id: UUID, message: str) -> None:
         async with self.database.session() as session, session.begin():
             batch = await session.get(GenerationBatchRecord, batch_id)
-            if batch:
+            if batch and batch.status not in {"adopted", "archived"}:
                 batch.status = "needs_attention"
                 batch.next_action = None
                 batch.state = {**batch.state, "message": message[:1000]}
@@ -935,17 +1078,32 @@ class ProgressStream(httpx.AsyncByteStream):
     ) -> None:
         self.source = source
         self.report = report
+        self.received_bytes = 0
+        self.first_received_at: str | None = None
+        self.last_received_at: str | None = None
+        self.last_received_monotonic: float | None = None
+        self.max_idle_seconds = 0.0
 
     async def __aiter__(self) -> AsyncIterator[bytes]:
         received = 0
         last = 0.0
         async for chunk in self.source:
+            arrived = monotonic()
+            if self.last_received_monotonic is not None:
+                self.max_idle_seconds = max(
+                    self.max_idle_seconds, arrived - self.last_received_monotonic,
+                )
+            self.last_received_monotonic = arrived
             received += len(chunk)
+            self.received_bytes = received
+            self.last_received_at = datetime.now(UTC).isoformat()
+            self.first_received_at = self.first_received_at or self.last_received_at
+            # Deliver to the evidence buffer before any cancellable progress write.
+            yield chunk
             now = monotonic()
             if now - last >= 2:
                 await self.report(received)
                 last = now
-            yield chunk
 
     async def aclose(self) -> None:
         await self.source.aclose()

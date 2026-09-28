@@ -4,13 +4,14 @@ from threading import Event
 
 from tests.integration.support import pytestmark as pytestmark
 from tests.integration.test_genre_generation import create, generation, post, read
+from tests.integration.test_stage_craft import create_craft
 
 
 def test_preview_preparation_does_not_block_other_requests_or_start_models(generation, monkeypatch):
     from novel_writer.generation import service
 
     client, control = generation
-    base, first = create(client, feedback_policy="logic-v1")
+    base, first = create_craft(client)
     entered, release = Event(), Event()
     original = service.prepare_preview
 

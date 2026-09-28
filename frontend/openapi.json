@@ -135,6 +135,16 @@
             }
           },
           {
+            "name": "replace_previous",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Replace Previous"
+            }
+          },
+          {
             "name": "Idempotency-Key",
             "in": "header",
             "required": true,
@@ -196,6 +206,100 @@
               "type": "string",
               "format": "uuid",
               "title": "Project Id"
+            }
+          },
+          {
+            "name": "replace_previous",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Replace Previous"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200,
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewGenerationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{project_id}/generation-batches/trial-preview": {
+      "post": {
+        "tags": [
+          "generation"
+        ],
+        "summary": "Create Trial Preview",
+        "operationId": "create_trial_preview_api_projects__project_id__generation_batches_trial_preview_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "replace_previous",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Replace Previous"
+            }
+          },
+          {
+            "name": "random_narratives",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Random Narratives"
             }
           },
           {
@@ -387,7 +491,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AuthorizeRequest"
+                "$ref": "#/components/schemas/CraftAuthorization"
               }
             }
           }
@@ -530,7 +634,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ContinueStageRequest"
+                "$ref": "#/components/schemas/CraftContinuation"
               }
             }
           }
@@ -884,7 +988,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PlanEdit"
+                "$ref": "#/components/schemas/CreativePlanEdit"
               }
             }
           }
@@ -1913,6 +2017,145 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Stage Adopt Api Projects  Project Id  Generation Batches  Batch Id  Stage Adopt Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{project_id}/generation-batches/{batch_id}/chapter-arrangement-preview": {
+      "post": {
+        "tags": [
+          "generation"
+        ],
+        "summary": "Chapter Arrangement Preview",
+        "operationId": "chapter_arrangement_preview_api_projects__project_id__generation_batches__batch_id__chapter_arrangement_preview_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Batch Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChapterArrangement"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Chapter Arrangement Preview Api Projects  Project Id  Generation Batches  Batch Id  Chapter Arrangement Preview Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{project_id}/generation-batches/{batch_id}/chapter-arrangement": {
+      "post": {
+        "tags": [
+          "generation"
+        ],
+        "summary": "Chapter Arrangement Apply",
+        "operationId": "chapter_arrangement_apply_api_projects__project_id__generation_batches__batch_id__chapter_arrangement_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Batch Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200,
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChapterArrangement"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationDetail"
                 }
               }
             }
@@ -6644,28 +6887,6 @@
         ],
         "title": "AuthorBlocker"
       },
-      "AuthorizeRequest": {
-        "properties": {
-          "preview_sha256": {
-            "type": "string",
-            "maxLength": 64,
-            "minLength": 64,
-            "title": "Preview Sha256"
-          },
-          "confirmed": {
-            "type": "boolean",
-            "const": true,
-            "title": "Confirmed"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "preview_sha256",
-          "confirmed"
-        ],
-        "title": "AuthorizeRequest"
-      },
       "AutomatedStagePlan": {
         "properties": {
           "chapter_goal": {
@@ -7256,6 +7477,50 @@
         ],
         "title": "ChapterApproval"
       },
+      "ChapterArrangement": {
+        "properties": {
+          "candidate_sha256": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Candidate Sha256"
+          },
+          "manifest_sha256": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Manifest Sha256"
+          },
+          "paragraph_ends": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Paragraph Ends"
+          },
+          "preview_sha256": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Sha256"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "candidate_sha256",
+          "manifest_sha256"
+        ],
+        "title": "ChapterArrangement"
+      },
       "ChapterSummary": {
         "properties": {
           "chapter_id": {
@@ -7695,6 +7960,55 @@
         "type": "object",
         "title": "CharacterPortrayalProfile"
       },
+      "CharacterProposal": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1600,
+            "minLength": 1,
+            "title": "Description"
+          },
+          "independent_goal": {
+            "type": "string",
+            "maxLength": 600,
+            "minLength": 1,
+            "title": "Independent Goal"
+          },
+          "voice": {
+            "type": "string",
+            "maxLength": 600,
+            "title": "Voice",
+            "default": ""
+          },
+          "entry_reason": {
+            "type": "string",
+            "maxLength": 800,
+            "minLength": 1,
+            "title": "Entry Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "independent_goal",
+          "entry_reason"
+        ],
+        "title": "CharacterProposal"
+      },
       "CharacterRelationship": {
         "properties": {
           "id": {
@@ -7828,7 +8142,55 @@
         ],
         "title": "ConfirmCommand"
       },
-      "ContinueStageRequest": {
+      "CraftAuthorization": {
+        "properties": {
+          "preview_sha256": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Preview Sha256"
+          },
+          "confirmed": {
+            "type": "boolean",
+            "const": true,
+            "title": "Confirmed"
+          },
+          "expected_plan_sha256": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Plan Sha256"
+          },
+          "expected_adjustment_sha256": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Adjustment Sha256"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "preview_sha256",
+          "confirmed"
+        ],
+        "title": "CraftAuthorization"
+      },
+      "CraftContinuation": {
         "properties": {
           "preview_sha256": {
             "type": "string",
@@ -7881,6 +8243,19 @@
             "type": "boolean",
             "const": true,
             "title": "Confirmed"
+          },
+          "expected_adjustment_sha256": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Adjustment Sha256"
           }
         },
         "additionalProperties": false,
@@ -7890,7 +8265,546 @@
           "expected_plan_sha256",
           "confirmed"
         ],
-        "title": "ContinueStageRequest"
+        "title": "CraftContinuation"
+      },
+      "CraftPlan": {
+        "properties": {
+          "chapter_goal": {
+            "type": "string",
+            "maxLength": 1200,
+            "minLength": 1,
+            "title": "Chapter Goal"
+          },
+          "bridge": {
+            "type": "string",
+            "maxLength": 1200,
+            "minLength": 1,
+            "title": "Bridge"
+          },
+          "scenes": {
+            "items": {
+              "$ref": "#/components/schemas/CraftUnit"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Scenes"
+          },
+          "major_turn": {
+            "type": "string",
+            "maxLength": 1200,
+            "minLength": 1,
+            "title": "Major Turn"
+          },
+          "world_context": {
+            "type": "string",
+            "maxLength": 4000,
+            "title": "World Context",
+            "default": ""
+          },
+          "questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Questions"
+          },
+          "question_scopes": {
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "current_unit",
+                "later"
+              ]
+            },
+            "type": "object",
+            "title": "Question Scopes"
+          },
+          "future_proposal": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Future Proposal",
+            "default": ""
+          },
+          "story_questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Story Questions"
+          },
+          "author_question_reasons": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AuthorBlocker"
+            },
+            "type": "object",
+            "title": "Author Question Reasons"
+          },
+          "macro_progression": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Macro Progression",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "chapter_goal",
+          "bridge",
+          "scenes",
+          "major_turn"
+        ],
+        "title": "CraftPlan"
+      },
+      "CraftSpec": {
+        "properties": {
+          "workflow": {
+            "type": "string",
+            "enum": [
+              "single-chapter-v1",
+              "novel-run-v1"
+            ],
+            "title": "Workflow",
+            "default": "novel-run-v1"
+          },
+          "context_policy": {
+            "type": "string",
+            "enum": [
+              "full-v1",
+              "bounded-v1",
+              "focused-v1",
+              "world-bounded-v1",
+              "knowledge-rag-v1",
+              "role-rag-v2",
+              "role-key-v3",
+              "chief-focus-v4"
+            ],
+            "title": "Context Policy",
+            "default": "chief-focus-v4"
+          },
+          "automation_policy": {
+            "type": "string",
+            "enum": [
+              "legacy-v1",
+              "stage-auto-v1"
+            ],
+            "title": "Automation Policy",
+            "default": "stage-auto-v1"
+          },
+          "feedback_policy": {
+            "type": "string",
+            "enum": [
+              "legacy-v1",
+              "advisory-v1",
+              "logic-v1"
+            ],
+            "title": "Feedback Policy",
+            "default": "logic-v1"
+          },
+          "writing_policy": {
+            "type": "string",
+            "enum": [
+              "legacy-v1",
+              "creative-v1",
+              "background-v1",
+              "guided-v1"
+            ],
+            "title": "Writing Policy",
+            "default": "guided-v1"
+          },
+          "card_selection_policy": {
+            "type": "string",
+            "enum": [
+              "legacy-v1",
+              "separate-v1"
+            ],
+            "title": "Card Selection Policy",
+            "default": "separate-v1"
+          },
+          "narrative_card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Narrative Card Ids"
+          },
+          "narrative_policy": {
+            "type": "string",
+            "enum": [
+              "legacy-v1",
+              "causal-v1",
+              "plot-led-v2",
+              "plot-led-v3"
+            ],
+            "title": "Narrative Policy",
+            "default": "plot-led-v3"
+          },
+          "plan_policy": {
+            "type": "string",
+            "enum": [
+              "exact-v1",
+              "bounded-v1"
+            ],
+            "title": "Plan Policy",
+            "default": "bounded-v1"
+          },
+          "length_policy": {
+            "type": "string",
+            "enum": [
+              "legacy-v1",
+              "unit-v1"
+            ],
+            "title": "Length Policy",
+            "default": "unit-v1"
+          },
+          "enable_checker": {
+            "type": "boolean",
+            "title": "Enable Checker",
+            "default": true
+          },
+          "enable_reader": {
+            "type": "boolean",
+            "title": "Enable Reader",
+            "default": false
+          },
+          "roles": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RoleModel"
+            },
+            "propertyNames": {
+              "enum": [
+                "memory",
+                "checker",
+                "reader",
+                "editor"
+              ]
+            },
+            "type": "object",
+            "title": "Roles"
+          },
+          "enable_editor": {
+            "type": "boolean",
+            "title": "Enable Editor",
+            "default": false
+          },
+          "generate_title": {
+            "type": "boolean",
+            "title": "Generate Title",
+            "default": false
+          },
+          "base_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Base Version Id"
+          },
+          "focus_card_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Focus Card Id"
+          },
+          "supporting_card_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supporting Card Id"
+          },
+          "direction": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Direction"
+          },
+          "author_boundaries": {
+            "type": "string",
+            "maxLength": 4000,
+            "title": "Author Boundaries",
+            "default": ""
+          },
+          "character_selection": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "chief-auto-v1"
+            ],
+            "title": "Character Selection",
+            "default": "manual"
+          },
+          "character_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Character Ids"
+          },
+          "viewpoint": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Viewpoint",
+            "default": ""
+          },
+          "relationship_scope": {
+            "type": "string",
+            "enum": [
+              "genre-led",
+              "explore",
+              "specified_pair",
+              "non_romantic",
+              "not_applicable"
+            ],
+            "title": "Relationship Scope",
+            "default": "genre-led"
+          },
+          "relationship_character_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Relationship Character Ids"
+          },
+          "profile_id": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 2,
+            "title": "Profile Id"
+          },
+          "chief_model": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Chief Model"
+          },
+          "writer_model": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Writer Model"
+          },
+          "chief_tokenizer_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_-]{1,80}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chief Tokenizer Id"
+          },
+          "writer_tokenizer_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_-]{1,80}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Writer Tokenizer Id"
+          },
+          "stage_mode": {
+            "type": "string",
+            "enum": [
+              "single-unit-v1",
+              "longform-v1"
+            ],
+            "title": "Stage Mode",
+            "default": "longform-v1"
+          },
+          "chapter_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chapter Count"
+          },
+          "unit_limit": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Unit Limit",
+            "default": 5
+          },
+          "milestone_unit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 5.0,
+                "minimum": 2.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Milestone Unit"
+          },
+          "previous_stage_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Stage Id"
+          },
+          "target_characters": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 6000.0,
+                "minimum": 2000.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Characters"
+          },
+          "input_limit": {
+            "type": "integer",
+            "maximum": 200000.0,
+            "minimum": 8000.0,
+            "title": "Input Limit",
+            "default": 200000
+          },
+          "chief_output_limit": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 2000.0,
+            "title": "Chief Output Limit",
+            "default": 100000
+          },
+          "auxiliary_output_limit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100000.0,
+                "minimum": 2000.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auxiliary Output Limit",
+            "default": 100000
+          },
+          "writer_output_limit": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 4000.0,
+            "title": "Writer Output Limit",
+            "default": 100000
+          },
+          "max_cost_cny": {
+            "type": "string",
+            "title": "Max Cost Cny"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "maximum": 1200.0,
+            "minimum": 60.0,
+            "title": "Timeout Seconds",
+            "default": 600
+          },
+          "pause_after_plan": {
+            "type": "boolean",
+            "title": "Pause After Plan",
+            "default": false
+          },
+          "craft_policy": {
+            "type": "string",
+            "const": "stage-craft-v1",
+            "title": "Craft Policy",
+            "default": "stage-craft-v1"
+          },
+          "stage_scale": {
+            "$ref": "#/components/schemas/StageScale"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "base_version_id",
+          "focus_card_id",
+          "direction",
+          "profile_id",
+          "chief_model",
+          "writer_model",
+          "max_cost_cny"
+        ],
+        "title": "CraftSpec"
+      },
+      "CraftUnit": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "maxLength": 1400,
+            "minLength": 1,
+            "title": "Event"
+          },
+          "character_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Character Ids"
+          },
+          "choice_and_response": {
+            "type": "string",
+            "maxLength": 1400,
+            "minLength": 1,
+            "title": "Choice And Response"
+          },
+          "consequence": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Consequence"
+          },
+          "development": {
+            "$ref": "#/components/schemas/Development"
+          },
+          "size_weight": {
+            "type": "number",
+            "maximum": 100.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Size Weight",
+            "default": 1
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "event",
+          "character_ids",
+          "choice_and_response",
+          "consequence"
+        ],
+        "title": "CraftUnit"
       },
       "CreateChapterRequest": {
         "properties": {
@@ -8002,6 +8916,183 @@
         ],
         "title": "CreateProjectRequest"
       },
+      "CreativePlan": {
+        "properties": {
+          "chapter_goal": {
+            "type": "string",
+            "maxLength": 1200,
+            "minLength": 1,
+            "title": "Chapter Goal"
+          },
+          "bridge": {
+            "type": "string",
+            "maxLength": 1200,
+            "minLength": 1,
+            "title": "Bridge"
+          },
+          "scenes": {
+            "items": {
+              "$ref": "#/components/schemas/CraftUnit"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Scenes"
+          },
+          "major_turn": {
+            "type": "string",
+            "maxLength": 1200,
+            "minLength": 1,
+            "title": "Major Turn"
+          },
+          "world_context": {
+            "type": "string",
+            "maxLength": 4000,
+            "title": "World Context",
+            "default": ""
+          },
+          "questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Questions"
+          },
+          "question_scopes": {
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "current_unit",
+                "later"
+              ]
+            },
+            "type": "object",
+            "title": "Question Scopes"
+          },
+          "future_proposal": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Future Proposal",
+            "default": ""
+          },
+          "story_questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Story Questions"
+          },
+          "author_question_reasons": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AuthorBlocker"
+            },
+            "type": "object",
+            "title": "Author Question Reasons"
+          },
+          "macro_progression": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Macro Progression",
+            "default": ""
+          },
+          "new_characters": {
+            "items": {
+              "$ref": "#/components/schemas/CharacterProposal"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "New Characters"
+          },
+          "creative_notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 16,
+            "title": "Creative Notes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "chapter_goal",
+          "bridge",
+          "scenes",
+          "major_turn"
+        ],
+        "title": "CreativePlan"
+      },
+      "CreativePlanEdit": {
+        "properties": {
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryPlan"
+              },
+              {
+                "$ref": "#/components/schemas/NovelStoryPlan"
+              },
+              {
+                "$ref": "#/components/schemas/StagePlan"
+              },
+              {
+                "$ref": "#/components/schemas/AutomatedStagePlan"
+              },
+              {
+                "$ref": "#/components/schemas/BackgroundPlan"
+              },
+              {
+                "$ref": "#/components/schemas/CraftPlan"
+              },
+              {
+                "$ref": "#/components/schemas/CreativePlan"
+              }
+            ],
+            "title": "Plan"
+          },
+          "expected_plan_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Plan Sha256"
+          },
+          "author_note": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Author Note"
+          },
+          "question_answers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Question Answers"
+          },
+          "deferred_questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Deferred Questions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "plan",
+          "author_note"
+        ],
+        "title": "CreativePlanEdit"
+      },
       "DeleteProjectRequest": {
         "properties": {
           "confirmed": {
@@ -8048,6 +9139,79 @@
           "confirmed"
         ],
         "title": "DeleteProviderProfileRequest"
+      },
+      "Development": {
+        "properties": {
+          "onstage_process": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Onstage Process",
+            "default": ""
+          },
+          "reveal_or_turn": {
+            "type": "string",
+            "maxLength": 1400,
+            "title": "Reveal Or Turn",
+            "default": ""
+          },
+          "payoff_or_aftermath": {
+            "type": "string",
+            "maxLength": 1400,
+            "title": "Payoff Or Aftermath",
+            "default": ""
+          },
+          "local_freedom": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Local Freedom",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Development"
+      },
+      "DispatchBlocker": {
+        "properties": {
+          "call_id": {
+            "type": "string",
+            "title": "Call Id"
+          },
+          "batch_id": {
+            "type": "string",
+            "title": "Batch Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "executing",
+              "outcome_uncertain"
+            ],
+            "title": "Status"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "started_at": {
+            "type": "string",
+            "title": "Started At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "call_id",
+          "batch_id",
+          "action",
+          "status",
+          "model",
+          "started_at"
+        ],
+        "title": "DispatchBlocker"
       },
       "EvidenceSpan": {
         "properties": {
@@ -8996,7 +10160,15 @@
             "title": "Revision"
           },
           "spec": {
-            "$ref": "#/components/schemas/FrozenGenerationSpec"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrozenGenerationSpec"
+              },
+              {
+                "$ref": "#/components/schemas/CraftSpec"
+              }
+            ],
+            "title": "Spec"
           },
           "snapshot": {
             "additionalProperties": true,
@@ -9038,6 +10210,13 @@
             },
             "type": "array",
             "title": "Calls"
+          },
+          "dispatch_blockers": {
+            "items": {
+              "$ref": "#/components/schemas/DispatchBlocker"
+            },
+            "type": "array",
+            "title": "Dispatch Blockers"
           },
           "passages": {
             "items": {
@@ -10151,6 +11330,12 @@
             "const": false,
             "title": "Enable Reader",
             "default": false
+          },
+          "craft_policy": {
+            "type": "string",
+            "const": "stage-craft-v1",
+            "title": "Craft Policy",
+            "default": "stage-craft-v1"
           }
         },
         "additionalProperties": false,
@@ -10200,10 +11385,7 @@
           },
           "feedback_policy": {
             "type": "string",
-            "enum": [
-              "advisory-v1",
-              "logic-v1"
-            ],
+            "const": "logic-v1",
             "title": "Feedback Policy",
             "default": "logic-v1"
           },
@@ -10426,7 +11608,7 @@
               "longform-v1"
             ],
             "title": "Stage Mode",
-            "default": "single-unit-v1"
+            "default": "longform-v1"
           },
           "chapter_count": {
             "anyOf": [
@@ -10446,7 +11628,7 @@
             "maximum": 6.0,
             "minimum": 1.0,
             "title": "Unit Limit",
-            "default": 1
+            "default": 5
           },
           "milestone_unit": {
             "type": "null",
@@ -10536,6 +11718,15 @@
             "type": "boolean",
             "title": "Pause After Plan",
             "default": false
+          },
+          "craft_policy": {
+            "type": "string",
+            "const": "stage-craft-v1",
+            "title": "Craft Policy",
+            "default": "stage-craft-v1"
+          },
+          "stage_scale": {
+            "$ref": "#/components/schemas/StageScale"
           }
         },
         "additionalProperties": false,
@@ -10770,69 +11961,6 @@
         ],
         "title": "Place"
       },
-      "PlanEdit": {
-        "properties": {
-          "plan": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/StoryPlan"
-              },
-              {
-                "$ref": "#/components/schemas/NovelStoryPlan"
-              },
-              {
-                "$ref": "#/components/schemas/StagePlan"
-              },
-              {
-                "$ref": "#/components/schemas/AutomatedStagePlan"
-              },
-              {
-                "$ref": "#/components/schemas/BackgroundPlan"
-              }
-            ],
-            "title": "Plan"
-          },
-          "expected_plan_sha256": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expected Plan Sha256"
-          },
-          "author_note": {
-            "type": "string",
-            "maxLength": 4000,
-            "minLength": 1,
-            "title": "Author Note"
-          },
-          "question_answers": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object",
-            "title": "Question Answers"
-          },
-          "deferred_questions": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "maxItems": 8,
-            "title": "Deferred Questions"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "plan",
-          "author_note"
-        ],
-        "title": "PlanEdit"
-      },
       "PlotHistoryDecision": {
         "properties": {
           "id": {
@@ -11020,6 +12148,16 @@
                 "type": "null"
               }
             ]
+          },
+          "program_settings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProgramSettings"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -11029,6 +12167,34 @@
           "variant"
         ],
         "title": "PreviewTemplate"
+      },
+      "ProgramSettings": {
+        "properties": {
+          "texts": {
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 80000
+            },
+            "type": "object",
+            "title": "Texts"
+          },
+          "maximum_new_characters": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 12.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum New Characters"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ProgramSettings"
       },
       "ProjectDeletionPreview": {
         "properties": {
@@ -11540,6 +12706,11 @@
           "source_description": {
             "type": "string",
             "title": "Source Description"
+          },
+          "source_bindings": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Source Bindings"
           }
         },
         "type": "object",
@@ -11553,7 +12724,8 @@
           "engine_contract",
           "source_action",
           "source_call_id",
-          "source_description"
+          "source_description",
+          "source_bindings"
         ],
         "title": "PromptPreview"
       },
@@ -11811,6 +12983,26 @@
             "type": "boolean",
             "title": "Credential Required",
             "default": true
+          },
+          "authorization_scheme": {
+            "type": "string",
+            "enum": [
+              "bearer",
+              "raw"
+            ],
+            "title": "Authorization Scheme",
+            "default": "bearer"
+          },
+          "chat_template_enable_thinking": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Template Enable Thinking"
           },
           "allow_story_data": {
             "type": "boolean",
@@ -12690,6 +13882,16 @@
             "maxLength": 300,
             "title": "Note",
             "default": "手动修改"
+          },
+          "program_settings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProgramSettings"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -13475,6 +14677,43 @@
           "opening_focus_percent"
         ],
         "title": "StagePlan"
+      },
+      "StageScale": {
+        "properties": {
+          "scale_mode": {
+            "type": "string",
+            "enum": [
+              "stage-range",
+              "natural"
+            ],
+            "title": "Scale Mode",
+            "default": "stage-range"
+          },
+          "min_characters": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Min Characters",
+            "default": 15000
+          },
+          "max_characters": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Max Characters",
+            "default": 20000
+          },
+          "preferred_units": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Preferred Units",
+            "default": 5
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "StageScale"
       },
       "StateDelta": {
         "properties": {

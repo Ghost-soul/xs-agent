@@ -8,16 +8,16 @@ from sqlalchemy import select
 
 from novel_writer.db.models import GenerationBatchRecord, GenerationCallRecord
 from novel_writer.domain.state import StoryState
+from novel_writer.generation.configurable_cast import parse_plan as selected_plan
 from novel_writer.generation.content import checked_body, digest, parse_object
-from novel_writer.generation.feedback import execution_spec
-from novel_writer.generation.guidance import selected_plan
+from novel_writer.generation.craft_models import execution_spec, read_spec
 from novel_writer.generation.logic import checker_feedback, reader_feedback
 from novel_writer.generation.novel import invalidate_candidate, next_action, role_for, slots_for
 from novel_writer.generation.reports import (
     apply_edit,
     memory_result,
 )
-from novel_writer.generation.schemas import LONGFORM_REVISION, FrozenGenerationSpec
+from novel_writer.generation.schemas import LONGFORM_REVISION
 from novel_writer.generation.service import GenerationService
 from novel_writer.services.errors import WorkflowError
 
@@ -103,6 +103,9 @@ async def compile_stage(
         assert candidate is not None
         base = await service._version(batch.base_version_id)
         state = StoryState.model_validate(base.state)
+        from novel_writer.generation.creative_cast import reserved_ids
+
+        current_plan = await service.artifact(batch, "plan")
         with report_boundary():
             result = memory_result(
                 raw,
@@ -110,6 +113,12 @@ async def compile_stage(
                 state,
                 base.number,
                 batch.snapshot["candidate_chapter"],
+                reserved_character_ids=reserved_ids(
+                    batch.snapshot, current_plan.payload if current_plan else None,
+                ),
+                reference_boundary=call.request.get("prompt_template_source", {}).get(
+                    "reference_boundary"
+                ),
             )
         result["candidate_sha256"] = candidate.sha256
         await service.append(batch, "memory", result)
@@ -224,7 +233,7 @@ async def active_slots(service: GenerationService, batch: GenerationBatchRecord)
         if not amendment or amendment.sha256 != batch.state["amendment_authorized_sha256"]:
             raise WorkflowError("修订授权与预览来源失配")
         return list(amendment.payload["slots"])
-    return slots_for(FrozenGenerationSpec.model_validate(batch.spec))
+    return slots_for(read_spec(batch.spec))
 
 
 async def continue_independent_reader(

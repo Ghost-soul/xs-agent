@@ -5,7 +5,7 @@ from random import SystemRandom
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novel_writer.db.models import (
@@ -31,6 +31,7 @@ from novel_writer.generation.card_selection import selected_ids
 from novel_writer.generation.casting import (
     automatic,
 )
+from novel_writer.generation.configurable_cast import parse_plan as selected_plan
 from novel_writer.generation.content import (
     checked_body,
     digest,
@@ -39,24 +40,28 @@ from novel_writer.generation.content import (
     parse_plan,
 )
 from novel_writer.generation.context import enrich_context
+from novel_writer.generation.contract_compatibility import matches as contract_matches
+from novel_writer.generation.craft_models import read_spec
 from novel_writer.generation.diagnostics import (
     output_diagnostic,
     plan_distribution_diagnostic,
     plan_retry_preview,
 )
-from novel_writer.generation.guidance import selected_plan
 from novel_writer.generation.intent import prepare_cast, recall_text
 from novel_writer.generation.logic import advisory
 from novel_writer.generation.novel import invalidate_candidate, model_for, revision_for, slots_for
+from novel_writer.generation.output_contract import KEY as OUTPUT_KEY
+from novel_writer.generation.output_contract_v3 import binding as output_binding
+from novel_writer.generation.output_failures import failure_diagnostic
 from novel_writer.generation.preview_preparation import prepare_preview
-from novel_writer.generation.prompt_templates import contract_for
+from novel_writer.generation.progression_contract import contract_for
 from novel_writer.generation.questions import reconcile_questions
 from novel_writer.generation.reports import local_summary
+from novel_writer.generation.result_integrity import refusal_blocker
 from novel_writer.generation.schemas import (
     LONGFORM_REVISION,
     NOVEL_REVISION,
     AdoptRequest,
-    FrozenGenerationSpec,
     GenerationSpec,
     PlanEdit,
 )
@@ -94,11 +99,16 @@ class GenerationService(WorkflowPersistenceMixin):
         return batch
 
     async def create(
-        self, project_id: UUID, spec: GenerationSpec, key: str, *, random_narratives: bool = False
+        self, project_id: UUID, spec: GenerationSpec, key: str, *, random_narratives: bool = False,
+        format_trial: bool = False, replace_previous: bool = False,
     ) -> dict[str, Any]:
         request_payload = spec.model_dump(mode="json")
         if random_narratives:
             request_payload = {"spec": request_payload, "narrative_selection": "random-two-v1"}
+        if format_trial:
+            request_payload = {"request": request_payload, "format_trial": True}
+        if replace_previous:
+            request_payload = {"request": request_payload, "replace_previous": True}
         command = f"generation_create:{project_id}"
         cached = await self._idempotent(command, key, request_payload)
         if cached is not None:
@@ -107,6 +117,10 @@ class GenerationService(WorkflowPersistenceMixin):
         project = await self._locked_project(project_id)
         if project.archived_at is not None or project.current_version_id != spec.base_version_id:
             raise ConflictError("作品已归档或正式起点发生变化，请重新预览")
+        if replace_previous:
+            from novel_writer.generation.stage_replacement import require_idle
+
+            await require_idle(self, project_id)
         version = await self._version(project.current_version_id)
         state = StoryState.model_validate(version.state).model_dump(mode="json")
         characters = {c["id"]: c for c in state["characters"]}
@@ -337,7 +351,15 @@ class GenerationService(WorkflowPersistenceMixin):
                     if a not in {"editor", "memory_edit", "checker_edit", "title"}
                 ]
             )
+        from novel_writer.generation.craft_context import bind_snapshot as bind_craft
         from novel_writer.generation.knowledge_binding import bind_snapshot
+
+        bind_craft(spec, snapshot, state)
+        if payload.get("craft_policy") == "stage-craft-v1":
+            snapshot[OUTPUT_KEY] = output_binding()
+            from novel_writer.generation.creative_contract import bind_snapshot as bind_creative
+
+            bind_creative(spec, snapshot, state)
 
         await bind_snapshot(self, project_id, spec, snapshot)
         from novel_writer.generation.template_binding import defaults as template_defaults
@@ -345,7 +367,20 @@ class GenerationService(WorkflowPersistenceMixin):
         templates = await template_defaults(self, spec)
         if templates is not None:
             snapshot["prompt_templates"] = templates
-            snapshot["prompt_contract_sha256"] = contract_for(spec, snapshot)
+        from novel_writer.generation.editable_contract import bind_snapshot as bind_rules
+
+        bind_rules(snapshot, state)
+        from novel_writer.generation.reliability_contract import bind_snapshot as bind_units
+
+        bind_units(spec, snapshot)
+        if format_trial:
+            from novel_writer.generation.format_trial import bind_snapshot as bind_trial
+
+            bind_trial(spec, snapshot)
+        from novel_writer.generation.progression_contract import bind_snapshot as bind_progression
+
+        bind_progression(spec, snapshot)
+        snapshot["prompt_contract_sha256"] = contract_for(spec, snapshot)
         await asyncio.to_thread(
             prepare_preview,
             spec,
@@ -374,34 +409,51 @@ class GenerationService(WorkflowPersistenceMixin):
         )
         self.session.add(batch)
         await self.session.flush()
+        if replace_previous:
+            from novel_writer.generation.stage_replacement import replace_previous as supersede
+
+            await supersede(self, batch)
         result = await self.detail(batch)
         await self._save_idempotent(command, key, result, request_payload)
         return result
 
     async def authorize(
-        self, project_id: UUID, batch_id: UUID, sha: str, key: str
+        self,
+        project_id: UUID,
+        batch_id: UUID,
+        sha: str,
+        key: str,
+        expected_plan: str | None = None,
+        expected_adjustment: str | None = None,
     ) -> dict[str, Any]:
         command = f"generation_authorize:{batch_id}"
-        payload = {"preview_sha256": sha}
+        payload = {
+            "preview_sha256": sha,
+            **({"expected_plan_sha256": expected_plan} if expected_plan else {}),
+            **({"expected_adjustment_sha256": expected_adjustment} if expected_adjustment else {}),
+        }
         cached = await self._idempotent(command, key, payload)
         if cached is not None:
             return cached
         batch = await self.batch(project_id, batch_id, lock=True)
         await self.assert_current(batch)
+        await self.assert_delivered(batch)
+        from novel_writer.generation.craft_operations import validate_adjustment
+
+        await validate_adjustment(self, batch, expected_plan, expected_adjustment)
         if batch.preview_sha256 != sha or batch.snapshot.get("blockers"):
             raise ConflictError("预览绑定无效或仍有阻塞，未发送供应商请求")
         if batch.status not in {"draft", "paused", "awaiting_plan"} or batch.next_action is None:
             raise ConflictError("当前批次不能启动；未知结果或失败不能自动重发")
-        active = await self.session.scalar(
-            select(GenerationCallRecord.id)
-            .where(
-                GenerationCallRecord.project_id == project_id,
-                GenerationCallRecord.status.in_(("executing", "outcome_uncertain")),
-            )
-            .limit(1)
-        )
+        active = await self.dispatch_blockers(project_id)
         if active:
-            raise ConflictError("该作品有执行中或结果未知调用，不能再次派发")
+            blocking = active[0]
+            status = "执行中" if blocking["status"] == "executing" else "结果未知，待核对"
+            raise ConflictError(
+                f"该作品有执行中或结果未知调用，不能再次派发。"
+                f"阻塞阶段 {blocking['batch_id']}，步骤 {blocking['action']}（{status}）；"
+                "请在下方打开阻塞阶段处理。关闭未知状态不会重发模型请求。"
+            )
         queued = await self.session.scalar(
             select(GenerationBatchRecord.id)
             .where(
@@ -420,12 +472,48 @@ class GenerationService(WorkflowPersistenceMixin):
         await self._save_idempotent(command, key, result, payload)
         return result
 
+    async def dispatch_blockers(self, project_id: UUID) -> list[dict[str, Any]]:
+        """Expose only live call metadata; old batches can block a fresh preview."""
+        rows = await self.session.execute(
+            select(
+                GenerationCallRecord.id,
+                GenerationCallRecord.batch_id,
+                GenerationCallRecord.action,
+                GenerationCallRecord.status,
+                GenerationCallRecord.model,
+                GenerationCallRecord.started_at,
+            )
+            .join(GenerationBatchRecord, GenerationBatchRecord.id == GenerationCallRecord.batch_id)
+            .where(
+                GenerationCallRecord.project_id == project_id,
+                or_(
+                    GenerationCallRecord.status == "executing",
+                    and_(
+                        GenerationCallRecord.status == "outcome_uncertain",
+                        ~and_(
+                            GenerationBatchRecord.status == "archived",
+                            GenerationBatchRecord.state["stage_superseded_id"].astext.is_not(None),
+                        ),
+                    ),
+                ),
+            )
+            .order_by(GenerationCallRecord.started_at, GenerationCallRecord.id)
+        )
+        return [
+            {
+                "call_id": str(row.id), "batch_id": str(row.batch_id),
+                "action": row.action, "status": row.status, "model": row.model,
+                "started_at": row.started_at.isoformat(),
+            }
+            for row in rows
+        ]
+
     async def assert_current(self, batch: GenerationBatchRecord, *, dispatch: bool = True) -> None:
         project = await self._project(batch.project_id)
         if project.archived_at is not None or project.current_version_id != batch.base_version_id:
             raise ConflictError("正式版本已经变化，请从最新正式起点建立新批次")
         if (
-            batch.revision != revision_for(FrozenGenerationSpec.model_validate(batch.spec))
+            batch.revision != revision_for(read_spec(batch.spec))
             or fingerprint(
                 {"revision": batch.revision, "spec": batch.spec, "snapshot": batch.snapshot}
             )
@@ -434,13 +522,29 @@ class GenerationService(WorkflowPersistenceMixin):
             raise ConflictError("冻结批次来源或实际流程修订不匹配")
         if not dispatch:
             return
-        if batch.snapshot.get("prompt_contract_sha256") != contract_for(
-            FrozenGenerationSpec.model_validate(batch.spec), batch.snapshot
+        if not contract_matches(
+            read_spec(batch.spec), batch.snapshot, batch.snapshot.get("prompt_contract_sha256")
         ):
             raise ConflictError("生成提示词已修订，请建立新批次；不会升级旧批次输入")
         profile = self.profiles.get(batch.spec["profile_id"])
-        if profile is None or profile.model_dump(mode="json") != batch.snapshot["profile"]:
+        frozen_profile = dict(batch.snapshot["profile"])
+        # Old snapshots predate this setting and used Bearer authentication.
+        frozen_profile.setdefault("authorization_scheme", "bearer")
+        frozen_profile.setdefault("chat_template_enable_thinking", None)
+        if profile is None or profile.model_dump(mode="json") != frozen_profile:
             raise ConflictError("模型配置已变化，需要重新预览，不能静默升级批次")
+
+    async def assert_delivered(self, batch: GenerationBatchRecord) -> None:
+        calls = list(await self.session.scalars(
+            select(GenerationCallRecord).where(GenerationCallRecord.batch_id == batch.id)
+        ))
+        if not any(c.status == "completed" and failure_diagnostic(c) for c in calls):
+            return
+        artifacts = list(await self.session.scalars(
+            select(GenerationArtifactRecord).where(GenerationArtifactRecord.batch_id == batch.id)
+        ))
+        if reason := refusal_blocker(batch, calls, artifacts):
+            raise ConflictError(reason)
 
     async def detail(self, batch: GenerationBatchRecord) -> dict[str, Any]:
         from novel_writer.generation.content import paragraphs
@@ -449,6 +553,7 @@ class GenerationService(WorkflowPersistenceMixin):
         from novel_writer.generation.memory_recovery import eligible as memory_eligible
         from novel_writer.generation.memory_recovery import resolved_failures
         from novel_writer.generation.step_recovery import eligible as step_eligible
+        from novel_writer.generation.writer_observations import current_units, observe
 
         candidate = await self.artifact(batch, "candidate")
         artifacts = list(
@@ -470,6 +575,33 @@ class GenerationService(WorkflowPersistenceMixin):
             )
         )
         resolved = await resolved_failures(self, batch, calls)
+        from novel_writer.generation.stage_scale import status as scale_status
+
+        unit_artifact = await self.artifact(batch, "units")
+        scale = scale_status(
+            read_spec(batch.spec),
+            candidate.payload["body"] if candidate else "",
+            unit_artifact.payload["items"] if unit_artifact else [],
+            complete=candidate.payload.get("complete", True) if candidate else True,
+        )
+        latest = max(calls, key=lambda c: (c.started_at, c.slot)) if calls else None
+        failure = failure_diagnostic(latest) if latest else None
+        display_state = {
+            **batch.state, "stage_scale_status": scale,
+            "writer_unit_status": current_units(
+                candidate.payload["body"] if candidate else "",
+                unit_artifact.payload["items"] if unit_artifact else [], calls,
+            ),
+        }
+        if candidate:
+            from novel_writer.generation.repetition import observe as repetition_observation
+
+            display_state["prose_repetition"] = repetition_observation(candidate.payload["body"])
+        if failure and batch.status in {"needs_attention", "failed", "outcome_uncertain"}:
+            display_state["message"] = failure["message"]
+        invalid_result = refusal_blocker(batch, calls, artifacts)
+        if invalid_result and invalid_result not in display_state.get("message", ""):
+            display_state["message"] = invalid_result + " " + display_state.get("message", "")
         return {
             "id": str(batch.id),
             "passages": [
@@ -486,12 +618,15 @@ class GenerationService(WorkflowPersistenceMixin):
             # The full frozen corpus stays in PostgreSQL; polling never transfers the whole book.
             "snapshot": {k: v for k, v in batch.snapshot.items() if k != "knowledge_sources"},
             "next_action": batch.next_action,
-            "state": batch.state,
+            "state": display_state,
             "plan_retry_preview": plan_retry_preview(batch, calls, {a.kind for a in artifacts}),
-            "input_recovery_available": eligible(batch, calls),
-            "memory_recovery_available": memory_eligible(batch, calls),
-            "step_recovery_available": step_eligible(batch, calls),
-            "plan_edit_revision": "author-plan-v1",
+            "input_recovery_available": not invalid_result and eligible(batch, calls),
+            "memory_recovery_available": not invalid_result
+            and not batch.snapshot.get("format_trial_contract")
+            and memory_eligible(batch, calls),
+            "step_recovery_available": not invalid_result and step_eligible(batch, calls),
+            "plan_edit_revision": None
+            if batch.snapshot.get("format_trial_contract") else "author-plan-v1",
             "artifacts": [
                 {
                     "id": str(a.id),
@@ -515,7 +650,10 @@ class GenerationService(WorkflowPersistenceMixin):
                     if c.actual_cost_cny is not None
                     else None,
                     "usage": (c.response or {}).get("usage"),
-                    "diagnostic": output_diagnostic(c) or plan_distribution_diagnostic(c),
+                    "writer_output": observe(c),
+                    "diagnostic": output_diagnostic(c)
+                    or failure_diagnostic(c)
+                    or plan_distribution_diagnostic(c),
                     "can_revalidate": revalidation_blocker(batch, c, candidate) is None,
                     "revalidation_blocker": revalidation_blocker(batch, c, candidate),
                     "replaced_by_recovery": str(c.id) in resolved,
@@ -524,6 +662,7 @@ class GenerationService(WorkflowPersistenceMixin):
                 }
                 for c in calls
             ],
+            "dispatch_blockers": await self.dispatch_blockers(batch.project_id),
         }
 
     async def artifact(
@@ -559,6 +698,9 @@ class GenerationService(WorkflowPersistenceMixin):
     async def edit_candidate(
         self, batch: GenerationBatchRecord, body: str, expected: str
     ) -> dict[str, Any]:
+        from novel_writer.generation.format_trial import require_standard
+
+        require_standard(batch.snapshot)
         if batch.status in {"queued", "running", "outcome_uncertain", "adopted", "archived"}:
             raise ConflictError("请先暂停并等待在途请求完成")
         candidate = await self.artifact(batch, "candidate")
@@ -578,6 +720,9 @@ class GenerationService(WorkflowPersistenceMixin):
         return await self.detail(batch)
 
     async def edit_plan(self, batch: GenerationBatchRecord, edit: PlanEdit) -> dict[str, Any]:
+        from novel_writer.generation.format_trial import require_standard
+
+        require_standard(batch.snapshot)
         await self.assert_current(batch)
         if batch.revision == LONGFORM_REVISION:
             from novel_writer.generation.longform import edit_stage_plan
@@ -601,9 +746,7 @@ class GenerationService(WorkflowPersistenceMixin):
         try:
             raw_plan = json_text(edit.plan.model_dump(mode="json"))
             plan = (
-                selected_plan(
-                    raw_plan, FrozenGenerationSpec.model_validate(batch.spec), batch.snapshot
-                )
+                selected_plan(raw_plan, read_spec(batch.spec), batch.snapshot)
                 if batch.revision == NOVEL_REVISION
                 else parse_plan(raw_plan, batch.spec["character_ids"])
             )
@@ -612,9 +755,7 @@ class GenerationService(WorkflowPersistenceMixin):
                 questions = await self.artifact(batch, "questions")
                 question_items = reconcile_questions(
                     questions.payload["items"] if questions else [],
-                    selected_plan(
-                        raw_plan, FrozenGenerationSpec.model_validate(batch.spec), batch.snapshot
-                    ),
+                    selected_plan(raw_plan, read_spec(batch.spec), batch.snapshot),
                     edit.question_answers,
                     edit.deferred_questions,
                     edit.author_note,
@@ -645,6 +786,12 @@ class GenerationService(WorkflowPersistenceMixin):
             )
         batch.status = "awaiting_plan"
         batch.next_action = "write"
+        from novel_writer.generation.craft_operations import preview_remaining
+        from novel_writer.generation.input_recovery import effective_spec
+
+        await preview_remaining(
+            self, batch, await effective_spec(self, batch), edit.expected_plan_sha256 or ""
+        )
         return await self.detail(batch)
 
     async def resolve_unknown(self, batch: GenerationBatchRecord, note: str) -> dict[str, Any]:
@@ -686,6 +833,9 @@ class GenerationService(WorkflowPersistenceMixin):
         factual_changes: dict[str, Any] | None = None,
         facts_confirmed: bool = False,
     ) -> dict[str, Any]:
+        from novel_writer.generation.format_trial import require_standard
+
+        require_standard(batch.snapshot)
         await self.assert_current(batch, dispatch=False)
         if batch.revision == LONGFORM_REVISION:
             raise WorkflowError("多章阶段请使用逐章事实确认与连续前缀采用入口")
@@ -741,9 +891,7 @@ class GenerationService(WorkflowPersistenceMixin):
         return {
             **evidence,
             "preview_sha256": fingerprint(evidence),
-            "needs_genre_acknowledgement": not advisory(
-                FrozenGenerationSpec.model_validate(batch.spec)
-            )
+            "needs_genre_acknowledgement": not advisory(read_spec(batch.spec))
             and (review is None or review.payload.get("needs_attention", True)),
         }
 

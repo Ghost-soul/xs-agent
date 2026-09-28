@@ -527,6 +527,70 @@ async def test_openai_compatible_skips_schema_for_writer_plain_text_transport() 
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("thinking", [None, False, True])
+@pytest.mark.parametrize("effort", [None, "none", "medium"])
+async def test_compatible_optional_thinking_parameter_and_writer_override(thinking, effort) -> None:
+    async def handler(http_request: httpx.Request) -> httpx.Response:
+        payload = json.loads(http_request.content)
+        assert "reasoning_effort" not in payload
+        if thinking is None:
+            assert "chat_template_kwargs" not in payload
+        else:
+            assert payload["chat_template_kwargs"] == {
+                "enable_thinking": thinking and effort != "none",
+            }
+        return httpx.Response(200, json={
+            "choices": [{"message": {"content": "OK"}, "finish_reason": "stop"}],
+        })
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        await OpenAICompatibleChatProvider(
+            provider_name="self-hosted",
+            base_url="http://model-service:8080/v1",
+            chat_template_enable_thinking=thinking,
+            client=client,
+        ).generate(request().model_copy(update={"reasoning_effort": effort}), "test-key")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("streaming", [False, True])
+@pytest.mark.parametrize("scheme", ["bearer", "raw"])
+@pytest.mark.parametrize("key", ["test-key", ""])
+async def test_compatible_authorization_header_format(streaming, scheme, key) -> None:
+    seen = []
+
+    async def handler(http_request: httpx.Request) -> httpx.Response:
+        seen.append(http_request)
+        expected = (key if scheme == "raw" else f"Bearer {key}") if key else None
+        assert http_request.headers.get("authorization") == expected
+        assert str(http_request.url) == "http://model-service:8080/v1/chat/completions"
+        assert json.loads(http_request.content)["stream"] is streaming
+        if streaming:
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                content=(
+                    'data: {"id":"test-auth","choices":[{"delta":{"content":"OK"},'
+                    '"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'
+                ),
+            )
+        return httpx.Response(200, json={
+            "id": "test-auth",
+            "choices": [{"message": {"content": "OK"}, "finish_reason": "stop"}],
+        })
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await OpenAICompatibleChatProvider(
+            provider_name="self-hosted",
+            base_url="http://model-service:8080/v1",
+            authorization_scheme=scheme,
+            streaming_enabled=streaming,
+            client=client,
+        ).generate(request(), key)
+    assert result.text == "OK" and len(seen) == 1
+
+
+@pytest.mark.asyncio
 async def test_openai_compatible_local_endpoint_omits_empty_authorization_header() -> None:
     async def handler(http_request: httpx.Request) -> httpx.Response:
         assert "authorization" not in http_request.headers

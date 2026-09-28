@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type GenerationDetail } from "./api";
 import { GenerationCallLog } from "./GenerationCallLog";
@@ -28,6 +28,35 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 beforeEach(() => { vi.clearAllMocks(); vi.mocked(api).mockResolvedValue(receipt); });
 
 describe("original agent call records", () => {
+  it("explains every sent constraint in Chinese without exposing unused projection material", async () => {
+    const task = '任务\n{"creative_autonomy":{"maximum_new_characters":3},"future_extension":"完整保留"}';
+    vi.mocked(api).mockResolvedValue({ ...receipt, request: { ...receipt.request,
+      model_request: { ...receipt.request.model_request, user_prompt: task },
+      prompt_template_source: { omitted_optional: "未发送的历史资料" },
+      creative_autonomy_contract: { revision: "creative-autonomy-v1" },
+    } });
+    show(); open();
+    const view = await screen.findByLabelText("任务 Prompt", { selector: "pre" });
+    expect(view.textContent).toContain('"新增人物上限（maximum_new_characters）": 3');
+    expect(view.textContent).toContain('"future_extension": "完整保留"');
+    expect(screen.queryByText(/未发送的历史资料/)).toBeNull();
+    expect(screen.getByText(/创作自主规则：creative-autonomy-v1/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "复制任务 Prompt" }));
+    await screen.findByText("已复制任务 Prompt原文。");
+    expect(copyPlainText).toHaveBeenLastCalledWith(task);
+    expect(api).toHaveBeenCalledOnce();
+  });
+
+  it("flags a literal terminal marker even with stop while preserving the original output", async () => {
+    const text = "已保存正文。<|eos|>\n";
+    vi.mocked(api).mockResolvedValue({ ...receipt, response: { ...receipt.response, text } });
+    show(); open("write:1");
+    await screen.findByText(/供应商正文末尾含有字面结束标记/);
+    expect(screen.getByLabelText("模型原始输出", { selector: "pre" }).textContent).toBe(text);
+    expect(screen.queryByText(/该响应未完整结束/)).toBeNull();
+    expect(onRevalidate).not.toHaveBeenCalled();
+  });
+
   it("shows saved selection counts without treating bytes as model tokens", async () => {
     vi.mocked(api).mockResolvedValue({ ...receipt, request: { ...receipt.request,
       key_context_selection: { policy: "role-key-v3", material_count: 15000,
@@ -45,6 +74,7 @@ describe("original agent call records", () => {
   it("shows the actual input and output together and can copy either without writes", async () => {
     show(); open("write:1");
     expect((await screen.findByLabelText("系统 Prompt", { selector: "pre" })).textContent).toBe(receipt.request.model_request.system_prompt);
+    fireEvent.click(within(screen.getByRole("group", { name: "任务 Prompt阅读方式" })).getByText("原文对照"));
     expect(screen.getByLabelText("任务 Prompt", { selector: "pre" }).textContent).toBe(receipt.request.model_request.user_prompt);
     expect(screen.getByLabelText("模型原始输出", { selector: "pre" }).textContent).toBe(receipt.response.text);
     fireEvent.click(screen.getByRole("button", { name: "复制任务 Prompt" }));

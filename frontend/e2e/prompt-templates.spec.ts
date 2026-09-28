@@ -16,6 +16,10 @@ test("editable prompt defaults preview and version controls fit the workspace", 
         { key: "formal_reference", label: "正式参考", required: true },
         { key: "world_cards", label: "世界背景题材卡", required: true },
       ], output_requirement: "仅返回 output_schema 的完整 JSON。",
+      program_rules: [{ key: "creative_guidance", label: "创作自主范围与新增人物", condition: "绑定新版本的阶段", text: "按实际人数上限设计；新人物应有独立目标与合理出场原因。", default_text: "按实际人数上限设计；新人物应有独立目标与合理出场原因。" }],
+      program_settings: { texts: { creative_guidance: "按实际人数上限设计；新人物应有独立目标与合理出场原因。" }, ...(variant === "chief" ? { maximum_new_characters: 3 } : {}) },
+      default_program_settings: { texts: { creative_guidance: "按实际人数上限设计；新人物应有独立目标与合理出场原因。" }, ...(variant === "chief" ? { maximum_new_characters: 3 } : {}) },
+      program_constraints: { maximum_new_characters: 3 },
     })), history: [] as { revision: string; created_at: string; note: string }[],
   };
   const unexpected: string[] = [];
@@ -29,14 +33,17 @@ test("editable prompt defaults preview and version controls fit the workspace", 
     if (path === "/api/prompt-templates/chief" && request.method() === "PUT") {
       writes.push(path);
       const payload = request.postDataJSON();
-      catalog = { ...catalog, revision: "saved", entries: catalog.entries.map((entry) => entry.variant === "chief" ? { ...entry, text: payload.template, customized: true } : entry) };
+      expect(payload.program_settings.maximum_new_characters).toBe(5);
+      expect(payload.program_settings.texts.creative_guidance).toBe("作者的新指导：让每个出场人物有自己的目标。");
+      catalog = { ...catalog, revision: "saved", entries: catalog.entries.map((entry) => entry.variant === "chief" ? { ...entry, text: payload.template, customized: true, program_settings: payload.program_settings } : entry) };
       value = catalog;
     } else if (path === "/api/prompt-templates/preview" && request.method() === "POST") {
       writes.push(path);
-      value = { system_prompt: request.postDataJSON().template.system_text,
-        task_prompt: "作者要求\n安排一次调查事件。\n\n【程序输出与来源合同】\n完整字段结构保持。",
+      value = { system_prompt: request.postDataJSON().template.system_text + "\n" + request.postDataJSON().program_settings.texts.creative_guidance,
+        task_prompt: '作者要求\n{"story_task":"安排一次调查事件。"}\n\n【程序输出与来源合同】\n' + JSON.stringify({ creative_autonomy: { maximum_new_characters: request.postDataJSON().program_settings.maximum_new_characters }, future_extension: "完整保留" }),
         input_count: 6400, counting_method: "utf8-byte-upper-bound", blockers: [], omitted_optional: [],
         source_action: "plan", source_description: "使用所选批次的冻结资料；没有调用模型。", engine_contract: {},
+        source_bindings: { creative_autonomy: { revision: "creative-autonomy-v1" } },
       };
     } else if (request.method() !== "GET") { unexpected.push(path); await route.abort(); return; }
     else if (path === "/health") value = { status: "ok" };
@@ -50,6 +57,11 @@ test("editable prompt defaults preview and version controls fit the workspace", 
   await page.goto("/projects/p/settings?tab=prompts");
   await expect(page.getByRole("heading", { name: "Prompt 模板", exact: true })).toBeVisible();
   await expect(page.getByLabel("系统 Prompt 默认文本")).toHaveValue(text.system_text);
+  await expect(page.getByLabel("附加指导：创作自主范围与新增人物")).toBeVisible();
+  await expect(page.getByLabel("程序执行范围", { exact: true })).toContainText("新增人物上限（maximum_new_characters）");
+  await page.getByLabel(/Chief 新增人物上限/).fill("5");
+  await page.getByLabel("附加指导：创作自主范围与新增人物").fill("作者的新指导：让每个出场人物有自己的目标。");
+  await page.locator(".prompt-program-rules").screenshot({ path: testInfo.outputPath("editable-guidance.png") });
   await page.getByLabel("系统 Prompt 默认文本").fill(text.system_text + "\n作者手动补充：接续已发生事件的后果。");
   await page.getByRole("button", { name: "世界背景题材卡（必要）" }).click();
   await expect(page.getByLabel("任务 Prompt 模板")).toHaveValue(text.task_template);
@@ -67,9 +79,14 @@ test("editable prompt defaults preview and version controls fit the workspace", 
   await page.locator(".prompt-workspace").screenshot({ path: testInfo.outputPath("prompt-editor.png") });
   await page.getByRole("button", { name: "预览当前草稿（不调用模型）" }).click();
   await expect(page.getByText(/并非实际 tokens/)).toBeVisible();
+  await expect(page.getByLabel("最终任务 Prompt", { exact: true })).toContainText('"新增人物上限（maximum_new_characters）": 5');
+  await expect(page.getByLabel("最终系统 Prompt", { exact: true })).toContainText("作者的新指导");
+  await expect(page.getByLabel("最终任务 Prompt", { exact: true })).toContainText("future_extension");
   await page.locator(".prompt-preview").screenshot({ path: testInfo.outputPath("prompt-preview.png") });
   await page.getByRole("button", { name: "保存为默认", exact: true }).click();
   await expect(page.getByText(/已保存。新建预览/)).toBeVisible();
+  await expect(page.getByLabel(/Chief 新增人物上限/)).toHaveValue("5");
+  await expect(page.getByLabel("附加指导：创作自主范围与新增人物")).toHaveValue("作者的新指导：让每个出场人物有自己的目标。");
   const widths = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
   expect(widths[0]).toBeLessThanOrEqual(widths[1] + 1);
   expect(writes).toEqual(["/api/prompt-templates/preview", "/api/prompt-templates/chief"]);

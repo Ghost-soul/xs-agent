@@ -5,6 +5,31 @@ import type { GenerationDetail } from "./api";
 
 const plan = { chapter_goal: "主动邀请", bridge: "承接渡口", major_turn: "选择留下", genre_causal_role: "关系改变行动", opening_focus_percent: 0, questions: [], story_questions: ["谁先开口"], future_proposal: "后续同行", author_question_reasons: {}, scenes: [0, 1].map(() => ({ event: "相邀", character_ids: ["a", "b"], choice_and_response: "邀请并回应", consequence: "一同出发", focus_percent: 50, transition_percent: 0, other_percent: 0 })) };
 afterEach(cleanup);
+it("shows equal allocation only for bound new stages and preserves legacy weight editing", () => {
+  const weighted = { ...plan, scenes: plan.scenes.map((s) => ({ ...s, size_weight: 3, development: { onstage_process: "一轮完整行动" } })) };
+  const changed = vi.fn();
+  const { rerender } = render(<ChiefPlanFields value={JSON.stringify(weighted)} onChange={changed} writtenUnits={0} disabled={false} balancedUnits />);
+  expect(screen.getByText(/本阶段按有效单元数均分篇幅/)).toBeInTheDocument();
+  expect(screen.queryByLabelText("展开份量权重")).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("单元 1 · 后果"), { target: { value: "完成交易并改变调查条件" } });
+  expect(JSON.parse(changed.mock.calls[0][0]).scenes[0].size_weight).toBe(3);
+  rerender(<ChiefPlanFields value={JSON.stringify(weighted)} onChange={changed} writtenUnits={0} disabled={false} />);
+  expect(screen.getAllByLabelText("展开份量权重")[0]).toHaveValue(3);
+});
+it("shows proposed characters as designs and preserves them when selecting scene cast", () => {
+  const expanded = { ...plan, new_characters: [{ id: "new-person", name: "林岑", description: "渡口向导", independent_goal: "找回灯笼", voice: "短句", entry_reason: "闻声赶来" }], creative_notes: ["来历可在后续展开"] };
+  const changed = vi.fn();
+  render(<ChiefPlanFields value={JSON.stringify(expanded)} onChange={changed} writtenUnits={0} disabled={false} characters={[{ id: "a", name: "原角色" }]} />);
+  expect(screen.getByRole("region", { name: "新人物候选" })).toHaveTextContent("正文写出并提取证据后才形成候选事实");
+  expect(screen.getByText("创作待定事项（无需答复）")).toBeInTheDocument();
+  fireEvent.click(screen.getByLabelText("单元 1 · 林岑"));
+  const saved = JSON.parse(changed.mock.calls[0][0]);
+  expect(saved.scenes[0].character_ids).toContain("new-person");
+  expect(saved.new_characters).toEqual(expanded.new_characters);
+  expect(planMarkdown(expanded)).toContain("找回灯笼");
+  expect(planMarkdown(expanded)).toContain("来历可在后续展开");
+});
+
 it("edits and exports background plans without percentage controls", () => {
   const { genre_causal_role, opening_focus_percent, ...rest } = plan;
   const background = { ...rest, world_context: "夜间渡口关闭，来自正式规则", scenes: rest.scenes.map(({ focus_percent, transition_percent, other_percent, ...scene }) => scene) };

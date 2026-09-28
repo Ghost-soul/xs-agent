@@ -23,3 +23,10 @@
 .prompt-workspace details { margin-block: 1rem; }
 .prompt-diff ins { background: #dcfce7; color: #14532d; text-decoration: none; }
 .prompt-diff del { background: #fee2e2; color: #7f1d1d; }
+.prompt-content { min-width: 0; }
+.prompt-reading-controls { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: .75rem; }
+.prompt-reading-controls button[aria-pressed="true"] { background: #e6f0ec; border-color: #487566; color: #234d3e; }
+.prompt-program-rules { border: 1px solid #cbd5e1; border-radius: .5rem; padding: 1rem; }
+.prompt-program-rules section { border-top: 1px solid #e2e8f0; margin-top: 1rem; }
+.prompt-program-rules h4 { margin-bottom: .5rem; }
+.prompt-source-bindings { overflow-wrap: anywhere; }

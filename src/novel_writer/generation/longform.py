@@ -13,6 +13,7 @@ from novel_writer.db.models import (
     GenerationCallRecord,
 )
 from novel_writer.domain.state import StateDelta, StoryState
+from novel_writer.generation.configurable_cast import parse_stage
 from novel_writer.generation.content import (
     checked_body,
     digest,
@@ -21,17 +22,18 @@ from novel_writer.generation.content import (
     paragraphs,
     parse_object,
 )
-from novel_writer.generation.feedback import execution_spec
+from novel_writer.generation.craft_models import execution_spec, read_spec
+from novel_writer.generation.creative_cast import reserved_ids
 from novel_writer.generation.guidance import parse_comparison
 from novel_writer.generation.logic import advisory, checker_feedback, reader_feedback
 from novel_writer.generation.novel import invalidate_candidate, next_action, role_for, slots_for
-from novel_writer.generation.plan_capacity import parse_stage, plan_size
+from novel_writer.generation.plan_capacity import plan_size
 from novel_writer.generation.reports import (
     apply_edit,
     evidence,
     memory_result,
 )
-from novel_writer.generation.schemas import FrozenGenerationSpec, PlanEdit
+from novel_writer.generation.schemas import GenerationSpec, PlanEdit
 from novel_writer.generation.segmentation import segment_body
 from novel_writer.generation.unit_scope import enabled as unit_based
 from novel_writer.generation.unit_scope import segment_units
@@ -82,6 +84,10 @@ async def handoff_for(
 async def prepared_reports(
     service: GenerationService, batch: GenerationBatchRecord, action: str
 ) -> dict[str, Any]:
+    from novel_writer.generation import format_trial, trial_pipeline
+
+    if format_trial.enabled(batch.snapshot):
+        return await trial_pipeline.prepared_reports(service, batch, action)
     items = await units_for(service, batch)
     candidate = await service.artifact(batch, "candidate")
     complete = [u for u in items if u.get("memory_id")]
@@ -176,12 +182,12 @@ async def prepared_reports(
 
 
 async def freeze_segments(
-    service: GenerationService, batch: GenerationBatchRecord, spec=None
+    service: GenerationService, batch: GenerationBatchRecord, spec: GenerationSpec | None = None
 ) -> None:
     candidate = await service.artifact(batch, "candidate")
     if not candidate:
         return
-    spec = spec or FrozenGenerationSpec.model_validate(batch.spec)
+    spec = spec or read_spec(batch.spec)
     if unit_based(spec):
         manifest = segment_units(
             candidate.payload["body"],
@@ -190,18 +196,22 @@ async def freeze_segments(
             complete=candidate.payload.get("complete", True),
         )
     else:
+        assert spec.target_characters is not None
         manifest = segment_body(candidate.payload["body"], spec.target_characters, 3, str(batch.id))
     manifest["candidate_sha256"] = candidate.sha256
     await service.append(batch, "segments", manifest)
 
 
-def protect_written(prior: dict[str, Any], replacement: dict[str, Any], completed: int) -> None:
+def protect_written(
+    prior: dict[str, Any], replacement: dict[str, Any], completed: int,
+    additional_ids: frozenset[str] = frozenset(),
+) -> None:
     for field in ("chapter_goal", "major_turn", "genre_causal_role"):
         if prior.get(field) != replacement.get(field):
             raise ValueError("阶段原始题材目标不可在纠偏中替换")
     if prior["scenes"][:completed] != replacement["scenes"][:completed]:
         raise ValueError("只能替换未写单元，已写设计不可修改")
-    allowed = {i for s in prior["scenes"] for i in s["character_ids"]}
+    allowed = {i for s in prior["scenes"] for i in s["character_ids"]} | additional_ids
     if not {i for s in replacement["scenes"] for i in s["character_ids"]} <= allowed:
         raise ValueError("检查点不能扩大最初阶段的承载人物范围")
 
@@ -233,7 +243,7 @@ async def store_questions(
 
 
 async def choose_next(service: GenerationService, batch: GenerationBatchRecord) -> None:
-    spec = FrozenGenerationSpec.model_validate(batch.spec)
+    spec = read_spec(batch.spec)
     items = await units_for(service, batch)
     done = len([u for u in items if u.get("memory_id")])
     plan = await service.artifact(batch, "plan")
@@ -350,6 +360,11 @@ async def compile_longform(
     raw: str,
     complete: bool,
 ) -> None:
+    from novel_writer.generation import format_trial, trial_pipeline
+
+    if format_trial.enabled(batch.snapshot):
+        await trial_pipeline.compile_response(service, batch, call, raw, complete)
+        return
     spec = execution_spec(batch.spec, call.request)
     candidate = await service.artifact(batch, "candidate")
     plan = await service.artifact(batch, "plan")
@@ -453,12 +468,34 @@ async def compile_longform(
                 return
         await service.append(batch, "plan", new_plan)
         blocking = await store_questions(service, batch, new_plan)
+        from novel_writer.generation.craft_models import CraftSpec
+        from novel_writer.generation.stage_scale import acceptable_units
+
+        if isinstance(spec, CraftSpec) and action == "plan":
+            low, high = acceptable_units(spec)
+            count = len(new_plan["scenes"])
+            if not low <= count <= high:
+                batch.state = {
+                    **batch.state,
+                    "plan_scope_discrepancy": {
+                        "planned": count,
+                        "acceptable": [low, high],
+                        "over_authorized_limit": count > high,
+                    },
+                    "message": (
+                        "计划已保存，但单元规模与本次要求不同；请修改计划或明确接受较小规模。"
+                    ),
+                }
+                batch.status, batch.next_action = "awaiting_plan", None
+                return
         if blocking or (action == "plan" and spec.pause_after_plan):
             batch.status, batch.next_action = "awaiting_plan", None if blocking else "write:1"
             return
         await choose_next(service, batch)
         return
     if role == "memory":
+        from novel_writer.generation.structured_json import parse_report
+
         assert candidate
         rebuilding = ":" not in action
         body = candidate.payload["body"]
@@ -474,7 +511,7 @@ async def compile_longform(
                 "complete": True,
             }
             items = [item]
-            data = parse_object(raw)
+            data = parse_report(raw)
             flags: dict[str, Any] = {"stage_complete": True}
         else:
             item = items[-1]
@@ -482,7 +519,7 @@ async def compile_longform(
                 previous = await handoff_for(service, batch, items[-2])
                 state = StoryState.model_validate(previous["working_state"])
             body = body[item["start"] : item["end"]]
-            data = parse_object(raw)
+            data = parse_report(raw)
             if advisory(spec):
                 # Memory records continuity; creative decisions belong to Chief/Writer.
                 data.update(stage_complete=False, correction_needed=False)
@@ -516,6 +553,10 @@ async def compile_longform(
                 "id": item["chapter_id"],
                 "ordinal": batch.snapshot["candidate_chapter"]["ordinal"] + item["ordinal"] - 1,
             },
+            reserved_character_ids=reserved_ids(batch.snapshot, plan.payload if plan else None),
+            reference_boundary=call.request.get("prompt_template_source", {}).get(
+                "reference_boundary"
+            ),
         )
         delta = StateDelta.model_validate(
             {
@@ -668,15 +709,28 @@ async def edit_stage_plan(
     )
     if used:
         raise ConflictError("下一单元已经领取，不能改写调用来源")
-    spec = FrozenGenerationSpec.model_validate(batch.spec)
+    spec = read_spec(batch.spec)
     try:
         plan = parse_stage(json_text(edit.plan.model_dump(mode="json")), spec, batch.snapshot)
+        plan_size(plan.model_dump(mode="json"), spec)
         # Before any prose, the author can direct the entire plan. Once writing
         # starts, preserve its original goal and every already-written unit.
         if items:
-            protect_written(prior.payload, plan.model_dump(mode="json"), len(items))
+            from novel_writer.generation.creative_cast import protect_proposals
+
+            protect_proposals(prior.payload, plan.model_dump(mode="json"), len(items))
+            protect_written(
+                prior.payload, plan.model_dump(mode="json"), len(items),
+                reserved_ids(batch.snapshot, plan.model_dump(mode="json")),
+            )
     except ValueError as error:
         raise WorkflowError(str(error)) from error
+    from novel_writer.generation.craft_models import enabled as craft_enabled
+
+    if craft_enabled(spec):
+        from novel_writer.generation.craft_operations import assert_idle
+
+        await assert_idle(service, batch)
     previous = await service.artifact(batch, "questions")
     questions = reconcile_questions(
         previous.payload["items"] if previous else [],
@@ -700,10 +754,15 @@ async def edit_stage_plan(
             "compared_early_sha256": early.sha256 if early else None,
         }
     batch.state = {
-        **batch.state,
+        **{k: v for k, v in batch.state.items() if k != "plan_scope_discrepancy"},
         "checkpoint_author_required": False,
         "message": "作者方案已保存为新版本；尚未调用模型，请核对后继续",
     }
     await choose_next(service, batch)
     batch.status = "awaiting_plan"
+    if craft_enabled(spec):
+        from novel_writer.generation.craft_operations import preview_remaining
+        from novel_writer.generation.input_recovery import effective_spec
+
+        await preview_remaining(service, batch, await effective_spec(service, batch), prior.sha256)
     return await service.detail(batch)

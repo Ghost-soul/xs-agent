@@ -3,6 +3,8 @@ import { api, errorMessage, isAbortError, type GenerationDetail } from "./api";
 import { actionName, callStatusName, chronologicalCalls, revalidationBlocker } from "./GenerationProgress";
 import { copyPlainText } from "./novelText";
 import { SavedContextSelection, SavedKnowledge, type ContextSelection } from "./KnowledgePanel";
+import { WriterOutputSummary, type WriterObservation } from "./WriterOutputSummary";
+import { PromptContent, PromptSourceBindings } from "./PromptContent";
 
 type Call = GenerationDetail["calls"][number];
 type Receipt = {
@@ -12,6 +14,10 @@ type Receipt = {
     model_request?: { model?: string; system_prompt?: string; user_prompt?: string; max_output_tokens?: number };
     wire_body?: string;
     key_context_selection?: ContextSelection;
+    prompt_template_revision?: string;
+    creative_autonomy_contract?: { revision?: string };
+    role_output_contract?: { revision?: string };
+    prompt_rules_contract?: { revision?: string };
   };
   response: {
     text?: string;
@@ -101,7 +107,9 @@ function CallInspector({ base, batchId, call }: { base: string; batchId: string;
     const title = parts.find((p) => p.key === key)!.label;
     return typeof content === "string" ? <>
       <p className="agent-call-note">{content.length.toLocaleString()} 字符 · 原文完整保留</p>
-      {content.length ? <pre className="agent-call-source" aria-label={title}>{content}</pre> : <p>已保存的{title}为空。</p>}
+      {content.length ? (key === "system" || key === "user"
+        ? <PromptContent key={key} text={content} label={title} />
+        : <pre className="agent-call-source" aria-label={title}>{content}</pre>) : <p>已保存的{title}为空。</p>}
     </> : <p>此记录未保存{title}。</p>;
   }
   function copy(content: string, title: string) {
@@ -129,7 +137,9 @@ function CallInspector({ base, batchId, call }: { base: string; batchId: string;
     {error && <p role="alert">{error}</p>}
     {receipt && <>
       <p className="agent-call-meta">模型：{request?.model || "未记录"} · {callStatusName(receipt.status)}{terminal?.finish_reason ? ` · 结束原因：${terminal.finish_reason}` : ""}</p>
+      <PromptSourceBindings value={{ template_revision: receipt.request.prompt_template_revision, creative_autonomy: receipt.request.creative_autonomy_contract, role_output: receipt.request.role_output_contract, editable_rules: receipt.request.prompt_rules_contract }} />
       {incomplete && <p role="alert">该响应未完整结束。以下保留当时已收到的内容。</p>}
+      {response?.text?.trimEnd().endsWith("<|eos|>") && <p role="alert">供应商正文末尾含有字面结束标记 &lt;|eos|&gt;。正常结束信号不能证明故事或 JSON 已写完整；请核对原文。原响应保留，此提示不会自动重试。</p>}
       {!response && <p role="status">尚未保存模型响应。可稍后刷新查看；没有响应记录不代表请求未执行。</p>}
       <SavedKnowledge userPrompt={request?.user_prompt} />
       <SavedContextSelection selection={receipt.request.key_context_selection} />
@@ -148,7 +158,7 @@ function CallInspector({ base, batchId, call }: { base: string; batchId: string;
       </div>
       <div role="tabpanel" id={`${id}-content`} aria-labelledby={`${id}-${part}`} tabIndex={0}>
         {part === "overview" && <div className="agent-prompt-columns">
-          <div><h4>输入 Prompt</h4><p className="agent-call-note">实际发送给该角色的系统要求、任务及故事上下文。</p>{overviewSource("system")}{overviewSource("user")}</div>
+          <div><h4>输入 Prompt</h4><p className="agent-call-note">本次记录保存的完整系统要求、任务及故事上下文；发送情况以调用状态为准。</p>{overviewSource("system")}{overviewSource("user")}</div>
           <div><h4>模型输出</h4><p className="agent-call-note">该次模型返回的原文，包含解析失败或截断时保存的内容。</p>{overviewSource("output")}</div>
         </div>}
         {part === "user" && <p className="agent-call-note">包含本次实际送入的任务、故事资料和上下文。</p>}
@@ -193,6 +203,7 @@ export function GenerationCallLog({ base, batch, busy, onRevalidate }: {
       const canAttempt = ["local_failure", "response_saved"].includes(String(call.status));
       return <article key={callId} className="agent-call-row">
         <p><strong>{actionName(call.action)}</strong> · {callStatusName(call.status)} · {String(call.started_at ?? "")} · 输入 {String(call.input_tokens ?? "未知")} · 费用 ¥{String(call.actual_cost_cny ?? "未知")}</p>
+        <WriterOutputSummary value={call.writer_output as WriterObservation | undefined} reasoning />
         <button type="button" aria-expanded={open} aria-controls={`agent-call-${callId}`} aria-label={`${actionName(call.action)}：${open ? "收起" : "查看"} Prompt 与输出`} onClick={() => setSelected(open ? null : callId)}>{open ? "收起 Prompt 与输出" : "查看 Prompt 与输出"}</button>
         {canAttempt && !blocker && <button type="button" disabled={busy} onClick={() => void onRevalidate(callId)}>纯本地重验</button>}
         {canAttempt && blocker && <p>{blocker}</p>}

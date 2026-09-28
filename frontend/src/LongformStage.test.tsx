@@ -49,7 +49,7 @@ it("enables longform explicitly without upgrading an old single-unit setting", (
   render(<StageSettings spec={{ unit_limit: 1, chapter_count: 1 } as GenerationSpec} update={update} history={[]} />);
   expect(screen.getByLabelText("生成方式")).toHaveValue("single-unit-v1");
   fireEvent.change(screen.getByLabelText("生成方式"), { target: { value: "longform-v1" } });
-  expect(update).toHaveBeenCalledWith(expect.objectContaining({ stage_mode: "longform-v1", unit_limit: 3, previous_stage_id: null }));
+  expect(update).toHaveBeenCalledWith(expect.objectContaining({ stage_mode: "longform-v1", unit_limit: 5, previous_stage_id: null }));
 });
 
 it("identifies missing chapter fields locally and validates only the selected prefix", async () => {

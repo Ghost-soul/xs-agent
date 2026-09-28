@@ -65,6 +65,32 @@ def test_profile_preserves_custom_base_url_and_model_ids() -> None:
     assert configured.models[0].id == "vendor/novel-model"
 
 
+def test_authorization_scheme_preserves_legacy_revision_and_round_trips(tmp_path) -> None:
+    store = ProviderProfileStore(tmp_path / "profiles.json")
+    configured = profile()
+    assert configured.authorization_scheme == "bearer"
+    # Captured from the published implementation before the setting existed.
+    legacy_revision = "4c61ee7d8b6197fb708daca27248dc7ec62c894609079d849e6b5e629f4bfe3a"
+    assert store.revision(configured) == legacy_revision
+    store.save(profile(authorization_scheme="raw"))
+    loaded = ProviderProfileStore(store.path).get(configured.id)
+    assert loaded.authorization_scheme == "raw"
+    assert store.revision(loaded) != legacy_revision
+    assert store.revision(profile(chat_template_enable_thinking=False)) != legacy_revision
+
+
+@pytest.mark.parametrize("protocol", ["deepseek_chat", "openai_responses"])
+def test_chat_template_thinking_rejects_unsupported_protocols(protocol) -> None:
+    with pytest.raises(ValidationError, match="chat_template_kwargs is only supported"):
+        profile(protocol=protocol, chat_template_enable_thinking=False)
+
+
+@pytest.mark.parametrize("protocol", ["deepseek_chat", "openai_responses"])
+def test_raw_authorization_rejects_protocols_that_cannot_send_it(protocol) -> None:
+    with pytest.raises(ValidationError, match="raw Authorization is only supported"):
+        profile(protocol=protocol, authorization_scheme="raw")
+
+
 def test_verified_compatible_model_exposes_implicit_reasoning_billing_to_writer() -> None:
     configured = profile(
         supports_reasoning_effort=False,
@@ -95,9 +121,24 @@ def test_streaming_is_limited_to_chat_completions_profiles() -> None:
             )
 
 
-def test_remote_profile_requires_https() -> None:
-    with pytest.raises(ValidationError, match="remote provider profiles must use HTTPS"):
-        profile(base_url="http://gateway.example/v1")
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "http://gateway.example/v1",
+        "http://192.168.1.10:8000/v1",
+        "http://ollama:11434/v1",
+        "http://host.docker.internal:11434/v1",
+        "http://127.0.0.1:11434/v1",
+        "http://[::1]:8000/v1",
+        "https://gateway.example/v1",
+    ],
+)
+@pytest.mark.parametrize("is_local", [False, True])
+def test_self_hosted_profile_accepts_http_independently_of_locality(base_url, is_local) -> None:
+    configured = profile(base_url=base_url, is_local=is_local)
+    assert configured.base_url == base_url
+    assert configured.is_local is is_local
+    assert configured.credential_required is True
 
 
 def test_local_profile_may_use_http_without_credentials() -> None:
@@ -116,6 +157,10 @@ def test_local_profile_may_use_http_without_credentials() -> None:
 @pytest.mark.parametrize(
     "base_url,error",
     [
+        ("ftp://gateway.example/v1", "absolute HTTP\\(S\\) URL"),
+        ("gateway.example/v1", "absolute HTTP\\(S\\) URL"),
+        ("http://user:secret@gateway.example/v1", "must not contain credentials"),
+        ("http://gateway.example/v1?key=secret", "must not contain a query or fragment"),
         ("https://user:secret@gateway.example/v1", "must not contain credentials"),
         ("https://gateway.example/v1?key=secret", "must not contain a query or fragment"),
         ("https://gateway.example/v1#models", "must not contain a query or fragment"),
@@ -418,17 +463,23 @@ async def test_connection_uses_saved_official_default_and_rejects_unknown_model(
     store = ProviderProfileStore(tmp_path / "profiles.json")
     store.set_preferred_model("deepseek", "deepseek-v4-flash")
     provider = SimpleNamespace(
-        generate=AsyncMock(return_value=ModelResponse(
-            text="Hello", raw_response="{}", usage=TokenUsage(input_tokens=1, output_tokens=1)
-        ))
+        generate=AsyncMock(
+            return_value=ModelResponse(
+                text="Hello", raw_response="{}", usage=TokenUsage(input_tokens=1, output_tokens=1)
+            )
+        )
     )
     monkeypatch.setattr(
         "novel_writer.api.routes.provider_profiles.build_provider", lambda _profile: provider
     )
-    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(
-        provider_profile_store=store,
-        credential_store=MemoryCredentialStore({"deepseek": "fake-key"}),
-    )))
+    request = SimpleNamespace(
+        app=SimpleNamespace(
+            state=SimpleNamespace(
+                provider_profile_store=store,
+                credential_store=MemoryCredentialStore({"deepseek": "fake-key"}),
+            )
+        )
+    )
     result = await run_provider_profile_test(
         "deepseek", ProviderConnectionTestRequest(confirmed=True), request
     )

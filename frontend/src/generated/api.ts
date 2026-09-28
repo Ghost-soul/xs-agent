@@ -90,6 +90,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/generation-batches/trial-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Trial Preview */
+        post: operations["create_trial_preview_api_projects__project_id__generation_batches_trial_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/generation-batches/setup": {
         parameters: {
             query?: never;
@@ -475,6 +492,40 @@ export interface paths {
         put?: never;
         /** Stage Adopt */
         post: operations["stage_adopt_api_projects__project_id__generation_batches__batch_id__stage_adopt_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/generation-batches/{batch_id}/chapter-arrangement-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Chapter Arrangement Preview */
+        post: operations["chapter_arrangement_preview_api_projects__project_id__generation_batches__batch_id__chapter_arrangement_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/generation-batches/{batch_id}/chapter-arrangement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Chapter Arrangement Apply */
+        post: operations["chapter_arrangement_apply_api_projects__project_id__generation_batches__batch_id__chapter_arrangement_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1931,16 +1982,6 @@ export interface components {
             /** Why Blocked */
             why_blocked: string;
         };
-        /** AuthorizeRequest */
-        AuthorizeRequest: {
-            /** Preview Sha256 */
-            preview_sha256: string;
-            /**
-             * Confirmed
-             * @constant
-             */
-            confirmed: true;
-        };
         /** AutomatedStagePlan */
         AutomatedStagePlan: {
             /** Chapter Goal */
@@ -2168,6 +2209,17 @@ export interface components {
              * @constant
              */
             facts_confirmed: true;
+        };
+        /** ChapterArrangement */
+        ChapterArrangement: {
+            /** Candidate Sha256 */
+            candidate_sha256: string;
+            /** Manifest Sha256 */
+            manifest_sha256: string;
+            /** Paragraph Ends */
+            paragraph_ends?: string[];
+            /** Preview Sha256 */
+            preview_sha256?: string | null;
         };
         /** ChapterSummary */
         ChapterSummary: {
@@ -2422,6 +2474,27 @@ export interface components {
              */
             anti_examples: string[];
         };
+        /** CharacterProposal */
+        CharacterProposal: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Independent Goal */
+            independent_goal: string;
+            /**
+             * Voice
+             * @default
+             */
+            voice: string;
+            /** Entry Reason */
+            entry_reason: string;
+        };
         /** CharacterRelationship */
         CharacterRelationship: {
             /**
@@ -2488,8 +2561,22 @@ export interface components {
              */
             confirmed: true;
         };
-        /** ContinueStageRequest */
-        ContinueStageRequest: {
+        /** CraftAuthorization */
+        CraftAuthorization: {
+            /** Preview Sha256 */
+            preview_sha256: string;
+            /**
+             * Confirmed
+             * @constant
+             */
+            confirmed: true;
+            /** Expected Plan Sha256 */
+            expected_plan_sha256?: string | null;
+            /** Expected Adjustment Sha256 */
+            expected_adjustment_sha256?: string | null;
+        };
+        /** CraftContinuation */
+        CraftContinuation: {
             /** Preview Sha256 */
             preview_sha256: string;
             /** Expected Plan Sha256 */
@@ -2512,6 +2599,251 @@ export interface components {
              * @constant
              */
             confirmed: true;
+            /** Expected Adjustment Sha256 */
+            expected_adjustment_sha256?: string | null;
+        };
+        /** CraftPlan */
+        CraftPlan: {
+            /** Chapter Goal */
+            chapter_goal: string;
+            /** Bridge */
+            bridge: string;
+            /** Scenes */
+            scenes: components["schemas"]["CraftUnit"][];
+            /** Major Turn */
+            major_turn: string;
+            /**
+             * World Context
+             * @default
+             */
+            world_context: string;
+            /** Questions */
+            questions?: string[];
+            /** Question Scopes */
+            question_scopes?: {
+                [key: string]: "current_unit" | "later";
+            };
+            /**
+             * Future Proposal
+             * @default
+             */
+            future_proposal: string;
+            /** Story Questions */
+            story_questions?: string[];
+            /** Author Question Reasons */
+            author_question_reasons?: {
+                [key: string]: components["schemas"]["AuthorBlocker"];
+            };
+            /**
+             * Macro Progression
+             * @default
+             */
+            macro_progression: string;
+        };
+        /** CraftSpec */
+        CraftSpec: {
+            /**
+             * Workflow
+             * @default novel-run-v1
+             * @enum {string}
+             */
+            workflow: "single-chapter-v1" | "novel-run-v1";
+            /**
+             * Context Policy
+             * @default chief-focus-v4
+             * @enum {string}
+             */
+            context_policy: "full-v1" | "bounded-v1" | "focused-v1" | "world-bounded-v1" | "knowledge-rag-v1" | "role-rag-v2" | "role-key-v3" | "chief-focus-v4";
+            /**
+             * Automation Policy
+             * @default stage-auto-v1
+             * @enum {string}
+             */
+            automation_policy: "legacy-v1" | "stage-auto-v1";
+            /**
+             * Feedback Policy
+             * @default logic-v1
+             * @enum {string}
+             */
+            feedback_policy: "legacy-v1" | "advisory-v1" | "logic-v1";
+            /**
+             * Writing Policy
+             * @default guided-v1
+             * @enum {string}
+             */
+            writing_policy: "legacy-v1" | "creative-v1" | "background-v1" | "guided-v1";
+            /**
+             * Card Selection Policy
+             * @default separate-v1
+             * @enum {string}
+             */
+            card_selection_policy: "legacy-v1" | "separate-v1";
+            /** Narrative Card Ids */
+            narrative_card_ids?: string[];
+            /**
+             * Narrative Policy
+             * @default plot-led-v3
+             * @enum {string}
+             */
+            narrative_policy: "legacy-v1" | "causal-v1" | "plot-led-v2" | "plot-led-v3";
+            /**
+             * Plan Policy
+             * @default bounded-v1
+             * @enum {string}
+             */
+            plan_policy: "exact-v1" | "bounded-v1";
+            /**
+             * Length Policy
+             * @default unit-v1
+             * @enum {string}
+             */
+            length_policy: "legacy-v1" | "unit-v1";
+            /**
+             * Enable Checker
+             * @default true
+             */
+            enable_checker: boolean;
+            /**
+             * Enable Reader
+             * @default false
+             */
+            enable_reader: boolean;
+            /** Roles */
+            roles?: {
+                [key: string]: components["schemas"]["RoleModel"];
+            };
+            /**
+             * Enable Editor
+             * @default false
+             */
+            enable_editor: boolean;
+            /**
+             * Generate Title
+             * @default false
+             */
+            generate_title: boolean;
+            /**
+             * Base Version Id
+             * Format: uuid
+             */
+            base_version_id: string;
+            /** Focus Card Id */
+            focus_card_id: string;
+            /** Supporting Card Id */
+            supporting_card_id?: string | null;
+            /** Direction */
+            direction: string;
+            /**
+             * Author Boundaries
+             * @default
+             */
+            author_boundaries: string;
+            /**
+             * Character Selection
+             * @default manual
+             * @enum {string}
+             */
+            character_selection: "manual" | "chief-auto-v1";
+            /** Character Ids */
+            character_ids?: string[];
+            /**
+             * Viewpoint
+             * @default
+             */
+            viewpoint: string;
+            /**
+             * Relationship Scope
+             * @default genre-led
+             * @enum {string}
+             */
+            relationship_scope: "genre-led" | "explore" | "specified_pair" | "non_romantic" | "not_applicable";
+            /** Relationship Character Ids */
+            relationship_character_ids?: string[];
+            /** Profile Id */
+            profile_id: string;
+            /** Chief Model */
+            chief_model: string;
+            /** Writer Model */
+            writer_model: string;
+            /** Chief Tokenizer Id */
+            chief_tokenizer_id?: string | null;
+            /** Writer Tokenizer Id */
+            writer_tokenizer_id?: string | null;
+            /**
+             * Stage Mode
+             * @default longform-v1
+             * @enum {string}
+             */
+            stage_mode: "single-unit-v1" | "longform-v1";
+            /** Chapter Count */
+            chapter_count?: number | null;
+            /**
+             * Unit Limit
+             * @default 5
+             */
+            unit_limit: number;
+            /** Milestone Unit */
+            milestone_unit?: number | null;
+            /** Previous Stage Id */
+            previous_stage_id?: string | null;
+            /** Target Characters */
+            target_characters?: number | null;
+            /**
+             * Input Limit
+             * @default 200000
+             */
+            input_limit: number;
+            /**
+             * Chief Output Limit
+             * @default 100000
+             */
+            chief_output_limit: number;
+            /**
+             * Auxiliary Output Limit
+             * @default 100000
+             */
+            auxiliary_output_limit: number | null;
+            /**
+             * Writer Output Limit
+             * @default 100000
+             */
+            writer_output_limit: number;
+            /** Max Cost Cny */
+            max_cost_cny: string;
+            /**
+             * Timeout Seconds
+             * @default 600
+             */
+            timeout_seconds: number;
+            /**
+             * Pause After Plan
+             * @default false
+             */
+            pause_after_plan: boolean;
+            /**
+             * Craft Policy
+             * @default stage-craft-v1
+             * @constant
+             */
+            craft_policy: "stage-craft-v1";
+            stage_scale?: components["schemas"]["StageScale"];
+        };
+        /** CraftUnit */
+        CraftUnit: {
+            /** Event */
+            event: string;
+            /** Character Ids */
+            character_ids: string[];
+            /** Choice And Response */
+            choice_and_response: string;
+            /** Consequence */
+            consequence: string;
+            development?: components["schemas"]["Development"];
+            /**
+             * Size Weight
+             * @default 1
+             */
+            size_weight: number;
         };
         /** CreateChapterRequest */
         CreateChapterRequest: {
@@ -2562,6 +2894,63 @@ export interface components {
              */
             character_names: string[];
         };
+        /** CreativePlan */
+        CreativePlan: {
+            /** Chapter Goal */
+            chapter_goal: string;
+            /** Bridge */
+            bridge: string;
+            /** Scenes */
+            scenes: components["schemas"]["CraftUnit"][];
+            /** Major Turn */
+            major_turn: string;
+            /**
+             * World Context
+             * @default
+             */
+            world_context: string;
+            /** Questions */
+            questions?: string[];
+            /** Question Scopes */
+            question_scopes?: {
+                [key: string]: "current_unit" | "later";
+            };
+            /**
+             * Future Proposal
+             * @default
+             */
+            future_proposal: string;
+            /** Story Questions */
+            story_questions?: string[];
+            /** Author Question Reasons */
+            author_question_reasons?: {
+                [key: string]: components["schemas"]["AuthorBlocker"];
+            };
+            /**
+             * Macro Progression
+             * @default
+             */
+            macro_progression: string;
+            /** New Characters */
+            new_characters?: components["schemas"]["CharacterProposal"][];
+            /** Creative Notes */
+            creative_notes?: string[];
+        };
+        /** CreativePlanEdit */
+        CreativePlanEdit: {
+            /** Plan */
+            plan: components["schemas"]["StoryPlan"] | components["schemas"]["NovelStoryPlan"] | components["schemas"]["StagePlan"] | components["schemas"]["AutomatedStagePlan"] | components["schemas"]["BackgroundPlan"] | components["schemas"]["CraftPlan"] | components["schemas"]["CreativePlan"];
+            /** Expected Plan Sha256 */
+            expected_plan_sha256?: string | null;
+            /** Author Note */
+            author_note: string;
+            /** Question Answers */
+            question_answers?: {
+                [key: string]: string;
+            };
+            /** Deferred Questions */
+            deferred_questions?: string[];
+        };
         /** DeleteProjectRequest */
         DeleteProjectRequest: {
             /**
@@ -2583,6 +2972,47 @@ export interface components {
              * @constant
              */
             confirmed: true;
+        };
+        /** Development */
+        Development: {
+            /**
+             * Onstage Process
+             * @default
+             */
+            onstage_process: string;
+            /**
+             * Reveal Or Turn
+             * @default
+             */
+            reveal_or_turn: string;
+            /**
+             * Payoff Or Aftermath
+             * @default
+             */
+            payoff_or_aftermath: string;
+            /**
+             * Local Freedom
+             * @default
+             */
+            local_freedom: string;
+        };
+        /** DispatchBlocker */
+        DispatchBlocker: {
+            /** Call Id */
+            call_id: string;
+            /** Batch Id */
+            batch_id: string;
+            /** Action */
+            action: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "executing" | "outcome_uncertain";
+            /** Model */
+            model: string;
+            /** Started At */
+            started_at: string;
         };
         /** EvidenceSpan */
         EvidenceSpan: {
@@ -3051,7 +3481,8 @@ export interface components {
             status: string;
             /** Revision */
             revision: string;
-            spec: components["schemas"]["FrozenGenerationSpec"];
+            /** Spec */
+            spec: components["schemas"]["FrozenGenerationSpec"] | components["schemas"]["CraftSpec"];
             /** Snapshot */
             snapshot: {
                 [key: string]: unknown;
@@ -3072,6 +3503,8 @@ export interface components {
             calls: {
                 [key: string]: unknown;
             }[];
+            /** Dispatch Blockers */
+            dispatch_blockers?: components["schemas"]["DispatchBlocker"][];
             /** Passages */
             passages?: {
                 [key: string]: unknown;
@@ -3569,6 +4002,12 @@ export interface components {
              * @constant
              */
             enable_reader: false;
+            /**
+             * Craft Policy
+             * @default stage-craft-v1
+             * @constant
+             */
+            craft_policy: "stage-craft-v1";
         };
         /** NewGenerationRequest */
         NewGenerationRequest: {
@@ -3593,9 +4032,9 @@ export interface components {
             /**
              * Feedback Policy
              * @default logic-v1
-             * @enum {string}
+             * @constant
              */
-            feedback_policy: "advisory-v1" | "logic-v1";
+            feedback_policy: "logic-v1";
             /**
              * Writing Policy
              * @default guided-v1
@@ -3702,7 +4141,7 @@ export interface components {
             writer_tokenizer_id?: string | null;
             /**
              * Stage Mode
-             * @default single-unit-v1
+             * @default longform-v1
              * @enum {string}
              */
             stage_mode: "single-unit-v1" | "longform-v1";
@@ -3710,7 +4149,7 @@ export interface components {
             chapter_count?: number | null;
             /**
              * Unit Limit
-             * @default 1
+             * @default 5
              */
             unit_limit: number;
             /** Milestone Unit */
@@ -3751,6 +4190,13 @@ export interface components {
              * @default false
              */
             pause_after_plan: boolean;
+            /**
+             * Craft Policy
+             * @default stage-craft-v1
+             * @constant
+             */
+            craft_policy: "stage-craft-v1";
+            stage_scale?: components["schemas"]["StageScale"];
         };
         /** NovelStoryPlan */
         NovelStoryPlan: {
@@ -3843,21 +4289,6 @@ export interface components {
              * @default
              */
             description: string;
-        };
-        /** PlanEdit */
-        PlanEdit: {
-            /** Plan */
-            plan: components["schemas"]["StoryPlan"] | components["schemas"]["NovelStoryPlan"] | components["schemas"]["StagePlan"] | components["schemas"]["AutomatedStagePlan"] | components["schemas"]["BackgroundPlan"];
-            /** Expected Plan Sha256 */
-            expected_plan_sha256?: string | null;
-            /** Author Note */
-            author_note: string;
-            /** Question Answers */
-            question_answers?: {
-                [key: string]: string;
-            };
-            /** Deferred Questions */
-            deferred_questions?: string[];
         };
         /** PlotHistoryDecision */
         PlotHistoryDecision: {
@@ -3958,6 +4389,16 @@ export interface components {
              */
             variant: "chief" | "writer" | "rewrite" | "memory" | "checker" | "editor" | "title";
             template?: components["schemas"]["TemplateText"] | null;
+            program_settings?: components["schemas"]["ProgramSettings"] | null;
+        };
+        /** ProgramSettings */
+        ProgramSettings: {
+            /** Texts */
+            texts?: {
+                [key: string]: string;
+            };
+            /** Maximum New Characters */
+            maximum_new_characters?: number | null;
         };
         /** ProjectDeletionPreview */
         ProjectDeletionPreview: {
@@ -4203,6 +4644,10 @@ export interface components {
             source_call_id: string | null;
             /** Source Description */
             source_description: string;
+            /** Source Bindings */
+            source_bindings: {
+                [key: string]: unknown;
+            };
         };
         /** ProviderModelOption */
         ProviderModelOption: {
@@ -4276,6 +4721,14 @@ export interface components {
              * @default true
              */
             credential_required: boolean;
+            /**
+             * Authorization Scheme
+             * @default bearer
+             * @enum {string}
+             */
+            authorization_scheme: "bearer" | "raw";
+            /** Chat Template Enable Thinking */
+            chat_template_enable_thinking?: boolean | null;
             /**
              * Allow Story Data
              * @default true
@@ -4702,6 +5155,7 @@ export interface components {
              * @default 手动修改
              */
             note: string;
+            program_settings?: components["schemas"]["ProgramSettings"] | null;
         };
         /** Scene */
         Scene: {
@@ -5029,6 +5483,30 @@ export interface components {
              * @default
              */
             future_proposal: string;
+        };
+        /** StageScale */
+        StageScale: {
+            /**
+             * Scale Mode
+             * @default stage-range
+             * @enum {string}
+             */
+            scale_mode: "stage-range" | "natural";
+            /**
+             * Min Characters
+             * @default 15000
+             */
+            min_characters: number;
+            /**
+             * Max Characters
+             * @default 20000
+             */
+            max_characters: number;
+            /**
+             * Preferred Units
+             * @default 5
+             */
+            preferred_units: number;
         };
         /** StateDelta */
         StateDelta: {
@@ -5703,7 +6181,9 @@ export interface operations {
     };
     create_batch_api_projects__project_id__generation_batches_post: {
         parameters: {
-            query?: never;
+            query?: {
+                replace_previous?: boolean;
+            };
             header: {
                 "Idempotency-Key": string;
             };
@@ -5740,7 +6220,49 @@ export interface operations {
     };
     create_random_preview_api_projects__project_id__generation_batches_random_preview_post: {
         parameters: {
-            query?: never;
+            query?: {
+                replace_previous?: boolean;
+            };
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewGenerationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_trial_preview_api_projects__project_id__generation_batches_trial_preview_post: {
+        parameters: {
+            query?: {
+                replace_previous?: boolean;
+                random_narratives?: boolean;
+            };
             header: {
                 "Idempotency-Key": string;
             };
@@ -5854,7 +6376,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AuthorizeRequest"];
+                "application/json": components["schemas"]["CraftAuthorization"];
             };
         };
         responses: {
@@ -5932,7 +6454,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ContinueStageRequest"];
+                "application/json": components["schemas"]["CraftContinuation"];
             };
         };
         responses: {
@@ -6121,7 +6643,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PlanEdit"];
+                "application/json": components["schemas"]["CreativePlanEdit"];
             };
         };
         responses: {
@@ -6628,6 +7150,82 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chapter_arrangement_preview_api_projects__project_id__generation_batches__batch_id__chapter_arrangement_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChapterArrangement"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chapter_arrangement_apply_api_projects__project_id__generation_batches__batch_id__chapter_arrangement_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChapterArrangement"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationDetail"];
                 };
             };
             /** @description Validation Error */

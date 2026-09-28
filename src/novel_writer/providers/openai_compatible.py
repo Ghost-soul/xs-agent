@@ -26,6 +26,7 @@ from novel_writer.providers.transport import (
 )
 
 StructuredOutputMode = Literal["json_schema", "json_object", "prompt_only"]
+AuthorizationScheme = Literal["bearer", "raw"]
 
 # Some OpenAI-compatible gateways apply browser/WAF rules to the transport
 # before they inspect the API key. Keep this stable and explicit for both
@@ -45,6 +46,8 @@ class OpenAICompatibleChatProvider:
         *,
         provider_name: ProviderIdentifier,
         base_url: str,
+        authorization_scheme: AuthorizationScheme = "bearer",
+        chat_template_enable_thinking: bool | None = None,
         structured_output_mode: StructuredOutputMode = "json_object",
         supports_reasoning_effort: bool = False,
         reasoning_tokens_billed_as_output_by_model: dict[str, bool] | None = None,
@@ -54,6 +57,8 @@ class OpenAICompatibleChatProvider:
     ) -> None:
         self.name = provider_name
         self._base_url = base_url.rstrip("/")
+        self._authorization_scheme = authorization_scheme
+        self._chat_template_enable_thinking = chat_template_enable_thinking
         self._structured_output_mode = structured_output_mode
         self._supports_reasoning_effort = supports_reasoning_effort
         self._reasoning_tokens_billed_as_output_by_model = dict(
@@ -130,13 +135,22 @@ class OpenAICompatibleChatProvider:
                 payload["response_format"] = {"type": "json_object"}
         if self._supports_reasoning_effort and request.reasoning_effort is not None:
             payload["reasoning_effort"] = request.reasoning_effort
+        if self._chat_template_enable_thinking is not None:
+            # An explicit Writer no-reasoning request overrides an enabled default.
+            payload["chat_template_kwargs"] = {
+                "enable_thinking": (
+                    self._chat_template_enable_thinking and request.reasoning_effort != "none"
+                ),
+            }
 
         headers = {
             "User-Agent": DEFAULT_USER_AGENT,
             "Accept": "application/json",
         }
         if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
+            headers["Authorization"] = (
+                api_key if self._authorization_scheme == "raw" else f"Bearer {api_key}"
+            )
         if streaming_enabled:
             payload["stream_options"] = {"include_usage": True}
             async with self._stream(payload, headers) as response:
@@ -530,14 +544,43 @@ def _interrupted_transport_error(
         if error.transport.format == "http-body-utf8-v1"
         else error.transport.format
     )
+    partial_text = None
+    usage = None
+    request_id = None
+    if error.transport.format == "http-body-utf8-v1":
+        try:
+            partial = _consume_chat_sse(error.transport, response_headers)
+            partial_text, usage, request_id = partial.text, partial.usage, partial.request_id
+        except ProviderResponseError as partial_error:
+            partial_text = partial_error.extracted_content
+            usage, request_id = partial_error.usage, partial_error.request_id
+        # The SSE parser historically defaults absent usage to zero. A cancelled
+        # stream must retain unknown cost unless the gateway actually sent usage.
+        usage = None
+        for line in error.transport.text.splitlines():
+            if not line.startswith("data:"):
+                continue
+            try:
+                event = json.loads(line[5:].strip())
+                observed = event.get("usage") if isinstance(event, dict) else None
+                if (
+                    isinstance(observed, dict)
+                    and {"prompt_tokens", "completion_tokens"} <= observed.keys()
+                ):
+                    usage = _token_usage(observed)
+            except (ValueError, TypeError):
+                continue
     return ProviderResponseError(
-        "OpenAI-compatible stream was interrupted before completion",
+        "OpenAI-compatible stream was interrupted before completion: "
+        + type(error.__cause__).__name__,
         error.transport.text,
         code=ProviderFailureCode.OUTCOME_UNCERTAIN,
+        extracted_content=partial_text, usage=usage, request_id=request_id,
         terminal=ProviderTerminalMetadata(
             protocol="openai_chat_completions",
             terminal_event_seen=False,
             stream_completed=False,
+            incomplete_reason=type(error.__cause__).__name__,
         ),
         raw_transport_format=transport_format,
         raw_entity_body_sha256=error.transport.entity_body_sha256,

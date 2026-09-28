@@ -35,10 +35,13 @@ test("original prompts and failed responses are readable and downloadable withou
   await page.getByRole("button", { name: "Memory（1）", exact: true }).click();
   const inspector = page.getByRole("region", { name: "Memory 提取第 1 单元事实的原始记录" });
   await expect(inspector.getByLabel("系统 Prompt", { exact: true })).toHaveText(system);
+  await expect(inspector.getByLabel("任务 Prompt", { exact: true })).toContainText("最终原文标记");
+  await inspector.getByRole("group", { name: "任务 Prompt阅读方式" }).getByRole("button", { name: "原文对照" }).click();
   expect(await inspector.getByLabel("任务 Prompt", { exact: true }).textContent()).toBe(user);
   expect(await inspector.getByLabel("模型原始输出", { exact: true }).textContent()).toBe(output);
   await inspector.screenshot({ path: testInfo.outputPath("agent-input-output.png") });
   await page.getByRole("tab", { name: "任务 Prompt", exact: true }).click();
+  await inspector.getByRole("group", { name: "任务 Prompt阅读方式" }).getByRole("button", { name: "原文对照" }).click();
   expect(await inspector.locator("pre").textContent()).toBe(user);
   await page.getByRole("tab", { name: "模型原始输出", exact: true }).click();
   expect(await inspector.locator("pre").textContent()).toBe(output);

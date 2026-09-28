@@ -123,6 +123,9 @@ def _verified(option: ProviderModelOption) -> ProviderModelOption:
 
 def _save_legacy_capabilities(store: ProviderProfileStore, profile: ProviderProfile) -> None:
     value = profile.model_dump(mode="json")
+    # These fields did not exist in the historical capability contract.
+    value.pop("authorization_scheme")
+    value.pop("chat_template_enable_thinking")
     for model in value["models"]:
         for field in _CAPABILITY_FIELDS:
             model.pop(field, None)

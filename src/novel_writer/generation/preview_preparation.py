@@ -7,7 +7,7 @@ from typing import Any
 
 from novel_writer.generation.budget import request_for, request_preview, validate_capacity
 from novel_writer.generation.chief_context import fit_context, material_target
-from novel_writer.generation.prompt_templates import render_for
+from novel_writer.generation.progression_contract import prepare_output, render_for
 from novel_writer.generation.schemas import GenerationSpec
 from novel_writer.services.errors import WorkflowError
 from novel_writer.services.provider_profiles import ProviderProfile
@@ -125,6 +125,9 @@ def prepare_preview(
     if "key_context_selection" in reports:
         snapshot["plan_context_selection"] = reports["key_context_selection"]
     request = request_for(spec, profile, "plan", system, user)
+    request = prepare_output(request, profile, "plan", snapshot, reports)
+    if "output_format" in reports:
+        snapshot["plan_output_format"] = reports["output_format"]
     blockers: list[str] = []
     try:
         snapshot["plan_input_tokens"] = validate_capacity(

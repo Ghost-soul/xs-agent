@@ -17,7 +17,10 @@ from pydantic import BaseModel, Field, model_validator
 from novel_writer.providers.base import ModelProvider
 from novel_writer.providers.deepseek import DeepSeekChatProvider
 from novel_writer.providers.openai import OpenAIResponsesProvider
-from novel_writer.providers.openai_compatible import OpenAICompatibleChatProvider
+from novel_writer.providers.openai_compatible import (
+    AuthorizationScheme,
+    OpenAICompatibleChatProvider,
+)
 from novel_writer.services.provider_capabilities import StructuredOutputCapability
 
 ProviderProtocol = Literal["deepseek_chat", "openai_responses", "openai_chat_completions"]
@@ -53,6 +56,8 @@ class ProviderProfile(BaseModel):
     enabled: bool = True
     is_local: bool = False
     credential_required: bool = True
+    authorization_scheme: AuthorizationScheme = "bearer"
+    chat_template_enable_thinking: bool | None = None
     allow_story_data: bool = True
     structured_output_mode: StructuredOutputMode = "json_object"
     supports_reasoning_effort: bool = False
@@ -74,8 +79,8 @@ class ProviderProfile(BaseModel):
             raise ValueError("provider base_url must not contain credentials")
         if parsed.query or parsed.fragment:
             raise ValueError("provider base_url must not contain a query or fragment")
-        if parsed.scheme != "https" and not self.is_local:
-            raise ValueError("remote provider profiles must use HTTPS")
+        # Self-hosted endpoints may use HTTP on LANs, Docker networks or remote hosts.
+        # The author's locality label does not determine the endpoint's transport.
         model_ids = [item.id for item in self.models]
         if len(model_ids) != len(set(model_ids)):
             raise ValueError("provider model ids must be unique")
@@ -83,6 +88,13 @@ class ProviderProfile(BaseModel):
             raise ValueError("default_model must be included in models")
         if self.protocol == "openai_responses" and self.structured_output_mode != "json_schema":
             raise ValueError("OpenAI Responses profiles require json_schema structured output")
+        if self.authorization_scheme != "bearer" and self.protocol != "openai_chat_completions":
+            raise ValueError("raw Authorization is only supported for Chat Completions profiles")
+        if (
+            self.chat_template_enable_thinking is not None
+            and self.protocol != "openai_chat_completions"
+        ):
+            raise ValueError("chat_template_kwargs is only supported for Chat Completions profiles")
         model_streaming_configured = any(item.streaming_enabled is not None for item in self.models)
         if (
             self.streaming_enabled or model_streaming_configured
@@ -357,6 +369,11 @@ _PRICING_FIELDS = {"input_price_cny_per_million", "output_price_cny_per_million"
 
 def _profile_contract_sha256(profile: ProviderProfile, *, include_pricing: bool = True) -> str:
     value = profile.model_dump(mode="json")
+    # Missing in historical profiles: keep their revisions and verified overlays valid.
+    if value["authorization_scheme"] == "bearer":
+        value.pop("authorization_scheme")
+    if value["chat_template_enable_thinking"] is None:
+        value.pop("chat_template_enable_thinking")
     for model in value["models"]:
         for field in _CAPABILITY_FIELDS:
             model.pop(field, None)
@@ -428,6 +445,8 @@ def build_provider(
     return OpenAICompatibleChatProvider(
         provider_name=profile.id,
         base_url=profile.base_url,
+        authorization_scheme=profile.authorization_scheme,
+        chat_template_enable_thinking=profile.chat_template_enable_thinking,
         structured_output_mode=profile.structured_output_mode,
         supports_reasoning_effort=profile.supports_reasoning_effort,
         reasoning_tokens_billed_as_output_by_model={

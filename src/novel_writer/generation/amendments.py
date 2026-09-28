@@ -8,10 +8,11 @@ from sqlalchemy import select
 from novel_writer.db.models import GenerationBatchRecord, GenerationCallRecord
 from novel_writer.generation.budget import cost_for, option_for, request_for
 from novel_writer.generation.content import fingerprint
+from novel_writer.generation.contract_compatibility import matches as contract_matches
 from novel_writer.generation.input_recovery import effective_spec
 from novel_writer.generation.logic import advisory
 from novel_writer.generation.novel import model_for
-from novel_writer.generation.prompt_templates import amendment_contract as contract_for
+from novel_writer.generation.reliability_contract import amendment_contract as contract_for
 from novel_writer.generation.reports import evidence
 from novel_writer.generation.schemas import (
     LONGFORM_REVISION,
@@ -43,6 +44,25 @@ def with_limits(spec: GenerationSpec, request: dict[str, Any]) -> GenerationSpec
         spec = spec.model_copy(update={"narrative_policy": request["narrative_policy"]})
     if "length_policy" in request:
         spec = spec.model_copy(update={"length_policy": request["length_policy"]})
+    if request.get("craft_policy") == "stage-craft-v1":
+        from novel_writer.generation.craft_models import CraftSpec
+
+        data = spec.model_dump(mode="json")
+        data.update(
+            craft_policy="stage-craft-v1",
+            context_policy="chief-focus-v4",
+            narrative_policy="plot-led-v3",
+            length_policy="unit-v1",
+            writing_policy="guided-v1",
+            automation_policy="stage-auto-v1",
+            plan_policy="bounded-v1",
+            card_selection_policy="separate-v1",
+            feedback_policy="logic-v1",
+            enable_reader=False,
+            milestone_unit=None,
+            stage_scale={"scale_mode": "natural", "preferred_units": 1},
+        )
+        spec = CraftSpec.model_validate(data)
     return spec.model_copy(update={"max_cost_cny": Decimal(request["max_cost_cny"])})
 
 
@@ -62,7 +82,10 @@ async def authorized_spec(
         raise ConflictError("修订授权与原批次或预览来源失配")
     spec = with_limits(spec, amendment.payload["request"])
     expected = contract_for(spec, amendment.payload)
-    if amendment.payload.get("prompt_contract_sha256", expected) != expected:
+    if not contract_matches(
+        spec, amendment.payload, amendment.payload.get("prompt_contract_sha256", expected),
+        amendment=True,
+    ):
         raise ConflictError("修订提示词已变化，请重新预览；原授权不升级")
     return spec
 
@@ -72,6 +95,9 @@ async def preview_amendment(
     batch: GenerationBatchRecord,
     request: AmendmentRequest,
 ) -> dict[str, Any]:
+    from novel_writer.generation.format_trial import require_standard
+
+    require_standard(batch.snapshot)
     await service.assert_current(batch)
     if batch.revision not in {NOVEL_REVISION, LONGFORM_REVISION} or batch.status not in {
         "ready",
@@ -122,6 +148,22 @@ async def preview_amendment(
 
     templates = await template_defaults(service, spec)
     binding = {"prompt_templates": templates} if templates is not None else {}
+    from novel_writer.generation.creative_cast import KEY as CREATIVE_KEY
+
+    if batch.snapshot.get(CREATIVE_KEY):
+        binding[CREATIVE_KEY] = batch.snapshot[CREATIVE_KEY]
+    if getattr(spec, "craft_policy", None) == "stage-craft-v1":
+        from novel_writer.generation.output_contract import KEY
+        from novel_writer.generation.output_contract_v3 import binding as output_binding
+
+        binding[KEY] = output_binding()
+        from novel_writer.generation.editable_contract import KEY as RULES_KEY
+        from novel_writer.generation.editable_contract import binding as rules_binding
+
+        binding[RULES_KEY] = rules_binding()
+        from novel_writer.generation.reliability_contract import bind_snapshot as bind_units
+
+        bind_units(spec, binding)
     payload = {
         "request": request.model_dump(mode="json"),
         "slots": slots,
@@ -145,6 +187,9 @@ async def authorize_amendment(
     batch: GenerationBatchRecord,
     sha: str,
 ) -> dict[str, Any]:
+    from novel_writer.generation.format_trial import require_standard
+
+    require_standard(batch.snapshot)
     await service.assert_current(batch)
     amendment = await service.artifact(batch, "amendment")
     candidate = await service.artifact(batch, "candidate")

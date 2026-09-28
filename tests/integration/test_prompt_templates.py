@@ -9,8 +9,8 @@ import pytest
 from novel_writer.db.models import GenerationCallRecord
 from novel_writer.generation.budget import input_tokens, request_preview
 from novel_writer.generation.content import paragraphs
+from novel_writer.generation.craft_templates import default_text
 from novel_writer.generation.runtime import GenerationRuntime
-from novel_writer.generation.template_catalog import default_text
 from novel_writer.providers.base import ModelRequest
 from tests.integration.support import headers
 from tests.integration.support import pytestmark as pytestmark
@@ -22,7 +22,12 @@ from tests.integration.test_novel_run_rebuild import current, novel_generation
 from tests.integration.test_role_context import OPTIONS as OLD_OPTIONS
 from tests.integration.test_step_recovery import authorize, recovery
 
-OPTIONS = {**OLD_OPTIONS, "context_policy": "chief-focus-v4", "narrative_policy": "plot-led-v3"}
+OPTIONS = {
+    **OLD_OPTIONS,
+    "context_policy": "chief-focus-v4",
+    "narrative_policy": "plot-led-v3",
+    "craft_policy": "stage-craft-v1",
+}
 
 
 def save(client, variant, marker, expected=None):
@@ -66,6 +71,15 @@ def test_template_api_validation_history_conflict_and_preview_never_dispatches(a
     initial = read(client, "/api/prompt-templates")
     assert len(initial["entries"]) == 7
     assert all(e["variant"] != "reader" for e in initial["entries"])
+    from novel_writer.generation.creative_contract import KEY as CREATIVE_KEY
+    from novel_writer.generation.editable_rules import effective
+
+    chief = next(e for e in initial["entries"] if e["variant"] == "chief")
+    assert chief["program_constraints"]["maximum_new_characters"] == 3
+    assert any(
+        effective("chief").texts["creative_guidance"] == rule["text"]
+        for rule in chief["program_rules"]
+    )
     bad = client.put(
         "/api/prompt-templates/memory",
         headers=headers(),
@@ -101,6 +115,7 @@ def test_template_api_validation_history_conflict_and_preview_never_dispatches(a
     assert preview.json()["system_prompt"].startswith("CUSTOM_CHIEF")
     assert preview.json()["input_count"] > 0 and not preview.json()["blockers"]
     assert "output_schema" in preview.json()["engine_contract"]
+    assert preview.json()["source_bindings"]["creative_autonomy"] == draft["snapshot"][CREATIVE_KEY]
     assert control["calls"] == []
     assert read(client, f"{base}/{draft['id']}") == before
     unavailable = post(
@@ -281,7 +296,9 @@ def test_single_unit_local_editor_preserves_protected_paragraphs(novel_generatio
     adapt_fixture_provider(client, monkeypatch)
     for variant in ("chief", "writer", "editor", "memory"):
         save(client, variant, "SINGLE_" + variant)
-    base, draft = create(client, workflow="novel-run-v1", **OPTIONS)
+    base, draft = create(
+        client, workflow="novel-run-v1", stage_mode="single-unit-v1", unit_limit=1, **OPTIONS
+    )
     before = start(client, base, draft)
     assert all(c["status"] == "completed" for c in before["calls"]), before["state"]
     target = f"{base}/{before['id']}"
@@ -364,5 +381,16 @@ def test_reset_default_before_amendment_does_not_inherit_original_template(autom
     done = settle(client, base, before["id"])
     call = next(c for c in done["calls"] if c["action"] == "memory_amend")
     saved = read(client, target + f"/calls/{call['id']}")["request"]
-    assert saved["model_request"]["system_prompt"] == default_text("memory").system_text
+    from novel_writer.generation import creative_contract
+
+    expected = default_text("memory").system_text
+    if draft["snapshot"].get(creative_contract.KEY):
+        expected += "\n\n" + creative_contract.MEMORY
+    from novel_writer.generation import reliability_contract
+
+    assert saved[reliability_contract.KEY] == preview.json()[reliability_contract.KEY]
+    assert saved[reliability_contract.KEY] == reliability_contract.binding()
+    expected += "\n\n" + saved["structured_delivery"]["guidance"]
+    assert saved["model_request"]["system_prompt"] == expected
+    assert "OLD_STAGE_MEMORY" not in expected
     assert "prompt_template_revision" not in saved

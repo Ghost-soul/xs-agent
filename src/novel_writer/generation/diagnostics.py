@@ -8,7 +8,11 @@ from novel_writer.db.models import (
     GenerationCallRecord,
 )
 from novel_writer.generation.content import parse_object
-from novel_writer.generation.novel import parser_for
+from novel_writer.generation.output_failures import (
+    failure_diagnostic,
+    replay_blocker,
+    response_parser,
+)
 from novel_writer.generation.token_limits import INPUT_TOKEN_LIMIT, TOKEN_LIMIT
 
 
@@ -19,6 +23,13 @@ def revalidation_blocker(
 ) -> str | None:
     if call.status not in {"response_saved", "local_failure"} or not call.response:
         return "仅已保存完整响应的本地失败可以重验"
+    if reason := replay_blocker(call):
+        return reason
+    diagnostic = failure_diagnostic(call)
+    if diagnostic and diagnostic["code"] in {
+        "plan_output_incomplete", "plan_required_fields_missing", "memory_source_invalid",
+    }:
+        return str(diagnostic["message"])
     if output_diagnostic(call):
         return "输出已被截断，本地重验无法补齐缺失内容；需另行预览并确认补全"
     terminal = call.response.get("terminal") or {}
@@ -30,7 +41,7 @@ def revalidation_blocker(
         return "响应未完整结束或带有供应商错误，不能作为完整结果本地重验"
     if batch.status in {"running", "queued", "archived", "adopted", "outcome_uncertain"}:
         return "此批次当前不可本地重验"
-    if f"{call.id}:{parser_for(batch.revision, call.action)}" in batch.state.get("compiled", []):
+    if f"{call.id}:{response_parser(batch, call)}" in batch.state.get("compiled", []):
         return (
             "当前解析版本已处理过此响应，不能循环重验；"
             "已有有效计划时可手工修订，否则需重新建立预览"

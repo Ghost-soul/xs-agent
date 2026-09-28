@@ -66,8 +66,8 @@ def test_failed_v3_response_gets_one_local_attempt_without_paid_retry(
 
     with monkeypatch.context() as old:
         old.setattr(reports, "normalize_memory_format", lambda data, body: (data, []))
-        old.setattr(runtime, "parser_for", old_parser)
-        old.setattr(diagnostics, "parser_for", old_parser)
+        old.setattr(runtime, "response_parser", lambda batch, call: old_parser(batch.revision, call.action))
+        old.setattr(diagnostics, "response_parser", lambda batch, call: old_parser(batch.revision, call.action))
         failed = start(client, base, draft)
     call = next(c for c in failed["calls"] if c["action"].startswith("memory"))
     assert call["status"] == "local_failure"
@@ -88,5 +88,5 @@ def test_failed_v3_response_gets_one_local_attempt_without_paid_retry(
     assert compiled["status"] == ("local_failure" if foreign else "completed")
     assert after["status"] not in {"queued", "running"}
     assert f"{call['id']}:memory-evidence-v3" in after["state"]["compiled"]
-    assert f"{call['id']}:memory-evidence-v4" in after["state"]["compiled"]
+    assert f"{call['id']}:memory-evidence-v5" in after["state"]["compiled"]
     assert post(client, route + "/revalidate", {"confirmed": True}).status_code == 409

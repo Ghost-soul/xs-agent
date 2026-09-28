@@ -1,11 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { api, errorMessage, isAbortError, jsonBody, StableWriteOperationKeys, type GenerationDetail, type GenerationSpec } from "./api";
+import { defaultStageScale } from "./generationDefaults";
+import { countStoryCharacters, type ScaleStatus } from "./StageScale";
 import { actionName, plannedUnitCount } from "./GenerationProgress";
+import { ChapterArrangement } from "./ChapterArrangement";
 
 export function StageSettings({ spec, update, history }: { spec: GenerationSpec; update: (value: Partial<GenerationSpec>) => void; history: { id: string; status: string; direction: string }[] }) {
+  const previousLongform = useRef({ unit_limit: spec.unit_limit && spec.unit_limit > 1 ? spec.unit_limit : 5, scale: spec.stage_scale ?? defaultStageScale });
+  function switchMode(mode: GenerationSpec["stage_mode"]) {
+    if (spec.stage_mode === "longform-v1") previousLongform.current = { unit_limit: spec.unit_limit ?? 5, scale: spec.stage_scale ?? defaultStageScale };
+    update({ stage_mode: mode, unit_limit: mode === "longform-v1" ? previousLongform.current.unit_limit : 1, stage_scale: mode === "longform-v1" ? { ...previousLongform.current.scale, scale_mode: "stage-range" } : { ...defaultStageScale, scale_mode: "natural", preferred_units: 1 }, chapter_count: null, target_characters: null, length_policy: "unit-v1", milestone_unit: null, previous_stage_id: null });
+  }
   return <fieldset><legend>叙事单元与阶段接续</legend>
-    <label>生成方式<select value={spec.stage_mode ?? "single-unit-v1"} onChange={(e) => update({ stage_mode: e.target.value as GenerationSpec["stage_mode"], unit_limit: e.target.value === "longform-v1" ? 3 : 1, chapter_count: null, target_characters: null, length_policy: "unit-v1", milestone_unit: null, previous_stage_id: null })}><option value="longform-v1">连续完成计划中的叙事单元</option><option value="single-unit-v1">仅完成一个叙事单元</option></select></label>
+    <label>生成方式<select value={spec.stage_mode ?? "single-unit-v1"} onChange={(e) => switchMode(e.target.value as GenerationSpec["stage_mode"])}><option value="longform-v1">连续完成计划中的叙事单元</option><option value="single-unit-v1">仅完成一个叙事单元</option></select></label>
     {spec.stage_mode === "longform-v1" && <><div className="generation-grid">
+      <label>阶段目标下界（字）<input type="number" min="1" max="100000" value={spec.stage_scale?.min_characters ?? 15000} onChange={(e) => update({ stage_scale: { ...defaultStageScale, ...spec.stage_scale, min_characters: Number(e.target.value) } })} /></label>
+      <label>阶段目标上界（字）<input type="number" min="1" max="100000" value={spec.stage_scale?.max_characters ?? 20000} onChange={(e) => update({ stage_scale: { ...defaultStageScale, ...spec.stage_scale, max_characters: Number(e.target.value) } })} /></label>
+      <label>首选叙事单元数<input type="number" min="1" max={spec.unit_limit ?? 5} value={spec.stage_scale?.preferred_units ?? 5} onChange={(e) => update({ stage_scale: { ...defaultStageScale, ...spec.stage_scale, preferred_units: Number(e.target.value) } })} /></label>
+      <p>推荐每阶段 15,000–20,000 字、首选 5 个单元，新阶段按有效单元数均分篇幅，5 个单元时各约 3,000–4,000 字。每个单元完成一轮行动并形成阶段性结果，可包含多个连续场景。篇幅为创作参考，偏短会提示，完整长稿保留；费用仍按授权容量预留。</p>
       <label>接续前一阶段（可选）<select value={spec.previous_stage_id ?? ""} onChange={(e) => update({ previous_stage_id: e.target.value || null })}><option value="">从当前正式版本重新设计</option>{history.filter((h) => h.status === "adopted").map((h) => <option key={h.id} value={h.id}>{h.direction}</option>)}</select></label>
     </div><p>每个单元完成后由 Memory 保存事实接力，再进入下一个单元。完整单元按原边界生成章节草稿，保留全部正文，由你审核采用。下一阶段接续当前正式末尾。</p></>}
   </fieldset>;
@@ -23,6 +35,8 @@ function missingPosition(approval: Approval): string[] {
 
 export function LongformStage({ batch, base, disabled, onAdopted }: { batch: GenerationDetail; base: string; disabled: boolean; onAdopted: () => Promise<void> }) {
   const artifact = (kind: string) => batch.artifacts.find((a) => a.id === batch.state[`${kind}_id`]);
+  const manuscript = [...String((artifact("candidate")?.payload as { body?: string })?.body ?? "")];
+  const rangeCharacters = (start: number, end: number) => countStoryCharacters(manuscript.slice(start, end).join(""));
   const units = (artifact("units")?.payload as { items?: { ordinal: number; start: number; end: number; memory_id?: string }[] } | undefined)?.items ?? [];
   const early = artifact("early_review"), comparison = artifact("chief_comparison");
   const [suggestions, setSuggestions] = useState<Suggestions | null>(null);
@@ -51,14 +65,15 @@ export function LongformStage({ batch, base, disabled, onAdopted }: { batch: Gen
   function change(index: number, patch: Partial<Approval>) { setApprovals((old) => old.map((a, i) => i === index ? { ...a, ...patch, facts_confirmed: patch.facts_confirmed ?? false } : a)); setPreview(null); setAccept(false); }
   async function perform(action: () => Promise<void>) { setBusy(true); setError(""); try { await action(); } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); } }
   return <section className="generation-panel"><h3>阶段进度与逐章采用</h3>
+    {editable && <ChapterArrangement batch={batch} base={base} disabled={disabled || busy} refresh={onAdopted} />}
     <p>已保存 {units.length} / {plannedUnitCount(batch)} 个单元（授权上限 {batch.spec.unit_limit}），{units.filter((u) => u.memory_id).length} 个完成事实接力。下一动作：{batch.next_action ? actionName(batch.next_action) : "请查看上方当前创作进度"}。</p>
-    <ol>{units.map((u) => <li key={u.ordinal}>单元 {u.ordinal} · {u.end - u.start} 字 · {u.memory_id ? "接力已保存" : "等待事实接力"}</li>)}</ol>
+    <ol>{units.map((u) => <li key={u.ordinal}>单元 {u.ordinal} · {(batch.state.stage_scale_status as ScaleStatus | undefined)?.units.find((v) => v.ordinal === u.ordinal)?.characters ?? rangeCharacters(u.start, u.end)} 字 · {u.memory_id ? "接力已保存" : "等待事实接力"}</li>)}</ol>
     {early && <details><summary>首章早读及其精确范围</summary><pre>{JSON.stringify(early.payload, null, 2)}</pre></details>}
     {comparison && <details><summary>最近一次 Chief 题材对照</summary><pre>{JSON.stringify(comparison.payload, null, 2)}</pre></details>}
-    {suggestions && <><p>完整章节 {suggestions.chapters.length}；{suggestions.tail ? `另有 ${suggestions.tail.end - suggestions.tail.start} 字尾稿保留在候选中` : "正文已完整拆章"}。证据尚未完整的事实 {suggestions.deferred_fact_count} 项。</p>
+    {suggestions && <><p>完整章节 {suggestions.chapters.length}；{suggestions.tail ? `另有 ${rangeCharacters(suggestions.tail.start, suggestions.tail.end)} 字尾稿保留在候选中` : "正文已完整拆章"}。证据尚未完整的事实 {suggestions.deferred_fact_count} 项。</p>
       {!suggestions.chapters.length && <p>当前长度或自然段边界尚不能形成完整章节。可继续剩余单元，或保存作者修改后重新核验。</p>}
       {editable && suggestions.chapters.length > 0 && <><label>本次采用范围<select value={count} onChange={(e) => { setCount(Number(e.target.value)); setPreview(null); setAccept(false); }}>{suggestions.chapters.map((_, i) => <option value={i + 1} key={i}>前 {i + 1} 章</option>)}</select></label>
-        {suggestions.chapters.slice(0, count).map((chapter, index) => { const approval = approvals[index]; if (!approval) return null; return <fieldset key={chapter.id}><legend>第 {chapter.ordinal} 章 · {chapter.end - chapter.start} 字</legend>
+        {suggestions.chapters.slice(0, count).map((chapter, index) => { const approval = approvals[index]; if (!approval) return null; return <fieldset key={chapter.id}><legend>第 {chapter.ordinal} 章 · {rangeCharacters(chapter.start, chapter.end)} 字</legend>
           <p>事实提取：{chapter.facts_status}；章末现场：{chapter.position_status === "known" ? "有完整单元接力" : chapter.position_status === "reference" ? "已带入本章内较早的接力参考，请核对到章末是否有变化" : "拆分处无独立接力，请根据本章正文填写"}。</p>
           {chapter.position_status === "reference" && chapter.position_source && <details open><summary>参考之后至章末还有 {chapter.position_source.remaining_characters} 字，请核对现场变化</summary><p className="generation-prose">{String((artifact("candidate")?.payload as Record<string, unknown>)?.body ?? "").slice(chapter.position_source.end, chapter.end).trim()}</p></details>}
           <details><summary>本章正文与事实证据</summary><pre>{String((artifact("candidate")?.payload as Record<string, unknown>)?.body ?? "").slice(chapter.start, chapter.end)}</pre><pre>{JSON.stringify(chapter.observations, null, 2)}</pre></details>

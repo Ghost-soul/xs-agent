@@ -147,6 +147,7 @@ def test_new_memory_parser_allows_one_revalidation_and_keeps_author_edit_guard()
         id=uuid4(),
         action="memory:1",
         status="local_failure",
+        request={},
         response={
             "text": "saved",
             "terminal": {"terminal_event_seen": True, "finish_reason": "stop"},
@@ -154,6 +155,8 @@ def test_new_memory_parser_allows_one_revalidation_and_keeps_author_edit_guard()
     )
     batch = SimpleNamespace(
         revision=LONGFORM_REVISION,
+        snapshot={},
+        spec={},
         status="needs_attention",
         state={"compiled": [f"{call.id}:{parser_for(LONGFORM_REVISION)}"]},
     )
@@ -161,7 +164,9 @@ def test_new_memory_parser_allows_one_revalidation_and_keeps_author_edit_guard()
     batch.state["plan_author_note_id"] = "author-edit"
     assert "作者已修订" in revalidation_blocker(batch, call, None)
     del batch.state["plan_author_note_id"]
-    batch.state["compiled"].append(f"{call.id}:{parser_for(batch.revision, call.action)}")
+    from novel_writer.generation.output_failures import response_parser
+
+    batch.state["compiled"].append(f"{call.id}:{response_parser(batch, call)}")
     assert "当前解析版本已处理" in revalidation_blocker(batch, call, None)
     call.status = "completed"
     assert revalidation_blocker(batch, call, None) is not None

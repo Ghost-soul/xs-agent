@@ -11,12 +11,12 @@ from tests.integration.test_generation_automation import automated
 from tests.integration.test_generation_feedback import feedback_run
 from tests.integration.test_generation_longform import longform, stage_create
 from tests.integration.test_genre_generation import create, generation, post, read, start
+from tests.integration.test_stage_craft import craft, create_craft
 
 
 def draft(client):
-    return create(
-        client, workflow="novel-run-v1", writing_policy="guided-v1", feedback_policy="logic-v1",
-        card_selection_policy="separate-v1", focus_card_id="western_fantasy_dnd",
+    return create_craft(
+        client, focus_card_id="western_fantasy_dnd",
         supporting_card_id="traditional_wuxia_jianghu", narrative_card_ids=["girls_love_gl"],
     )
 
@@ -37,7 +37,10 @@ def test_random_preview_freezes_two_distinct_active_narratives_and_preserves_wor
         original["spec"]["focus_card_id"], original["spec"]["supporting_card_id"], *ids,
     ]
     assert all(digest(c["text"]) == c["sha256"] for c in cards)
-    assert read(client, f"{base}/{original['id']}") == original
+    archived = read(client, f"{base}/{original['id']}")
+    assert archived["status"] == "archived"
+    for field in ("spec", "snapshot", "preview_sha256", "calls"):
+        assert archived[field] == original[field]
     assert not control["calls"] and not preview["calls"]
 
 
@@ -79,13 +82,10 @@ def test_insufficient_distinct_narratives_creates_no_preview_or_call(generation,
     assert read(client, base) == previous and not control["calls"]
 
 
-def test_authorized_stage_uses_frozen_pair_without_drawing_again(feedback_run, monkeypatch):
-    client, control = feedback_run
-    base, original = stage_create(
-        client, writing_policy="guided-v1", feedback_policy="logic-v1",
-        automation_policy="stage-auto-v1", card_selection_policy="separate-v1",
-        focus_card_id="western_fantasy_dnd", narrative_card_ids=[], unit_limit=3,
-    )
+def test_authorized_stage_uses_frozen_pair_without_drawing_again(craft, monkeypatch):
+    client, control = craft
+    control["plan_count"] = 3
+    base, original = create_craft(client, narrative_card_ids=[], unit_limit=3)
     pair = ["girls_love_gl", "farming_infrastructure"]
     sample = Mock(return_value=pair)
     monkeypatch.setattr(SystemRandom, "sample", sample)
@@ -98,5 +98,6 @@ def test_authorized_stage_uses_frozen_pair_without_drawing_again(feedback_run, m
     assert done["state"]["units_finished"], done["state"]
     assert all(c["status"] == "completed" for c in done["calls"])
     assert done["spec"] == preview["spec"] and done["snapshot"] == preview["snapshot"]
-    assert [c["id"] for c in control["requests"]["plan"]["narrative_cards"]] == pair
+    selected = control["requests"]["plan"]["narrative_design"]["selected_cards"]
+    assert [c["id"] for c in selected] == pair
     assert sample.call_count == 1

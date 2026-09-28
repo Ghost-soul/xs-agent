@@ -10,9 +10,10 @@ from sqlalchemy import select
 from novel_writer.db.models import GenerationBatchRecord, GenerationCallRecord
 from novel_writer.generation.budget import cost_for, option_for, request_for
 from novel_writer.generation.content import fingerprint
+from novel_writer.generation.craft_models import read_spec
 from novel_writer.generation.novel import model_for, slots_for
 from novel_writer.generation.request_preparation import prepare_request
-from novel_writer.generation.schemas import LONGFORM_REVISION, FrozenGenerationSpec, GenerationSpec
+from novel_writer.generation.schemas import LONGFORM_REVISION, GenerationSpec
 from novel_writer.generation.token_limits import INPUT_TOKEN_LIMIT, TOKEN_LIMIT, with_limits
 from novel_writer.services.errors import ConflictError, WorkflowError
 from novel_writer.services.provider_profiles import ProviderProfile
@@ -38,7 +39,7 @@ def eligible(batch: GenerationBatchRecord, calls: list[GenerationCallRecord]) ->
 async def effective_spec(
     service: GenerationService, batch: GenerationBatchRecord
 ) -> GenerationSpec:
-    spec: GenerationSpec = FrozenGenerationSpec.model_validate(batch.spec)
+    spec: GenerationSpec = read_spec(batch.spec)
     receipt = await service.artifact(batch, "input_authorization")
     if receipt:
         data = receipt.payload

@@ -20,9 +20,9 @@ from novel_writer.domain.models import (
 
 
 def test_narrative_position_splits_model_joined_character_names() -> None:
-    position = NarrativePosition(current_characters=("凌风、海伦，艾伦", "凌风"))
+    position = NarrativePosition(current_characters=("测试角色甲、测试角色乙，艾伦", "测试角色甲"))
 
-    assert position.current_characters == ("凌风", "海伦", "艾伦")
+    assert position.current_characters == ("测试角色甲", "测试角色乙", "艾伦")
 
 
 def test_evidence_span_requires_forward_offsets() -> None:

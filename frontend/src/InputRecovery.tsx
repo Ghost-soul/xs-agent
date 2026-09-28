@@ -13,7 +13,10 @@ export function InputRecovery({ batch, base, disabled, onContinued }: { batch: G
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const writes = useRef(new StableWriteOperationKeys());
-  const binding = `${base}:${batch.id}:${batch.state.plan_id}:${batch.state.questions_id}:${batch.state.plan_author_note_id}:${batch.state.input_authorization_id}:${batch.state.candidate_id}:${batch.state.units_id}:${batch.next_action}:${batch.calls?.length}:${disabled}:${batch.input_recovery_available}`;
+  // Authorization returns a compact status receipt before the next full poll.
+  // The old availability flag must not trigger a preview for a running stage.
+  const available = batch.input_recovery_available && ["needs_attention", "awaiting_plan", "paused"].includes(batch.status);
+  const binding = `${base}:${batch.id}:${batch.status}:${batch.state.plan_id}:${batch.state.questions_id}:${batch.state.plan_author_note_id}:${batch.state.input_authorization_id}:${batch.state.candidate_id}:${batch.state.units_id}:${batch.next_action}:${batch.calls?.length}:${disabled}:${available}`;
   const currentBinding = useRef(binding); currentBinding.current = binding;
   const requestSerial = useRef(0);
   const check = useCallback(async (inputLimit: number | null, outputLimit: number, costLimit: string | null, signal?: AbortSignal) => {
@@ -30,12 +33,12 @@ export function InputRecovery({ batch, base, disabled, onContinued }: { batch: G
   }, [base, batch.id, binding]);
   useEffect(() => {
     setPreview(null); setLimit(null); setOutput(TOKEN_LIMIT); setBudget(null); setConfirmed(false); setError(""); setBusy(false);
-    if (!batch.input_recovery_available || disabled) return;
+    if (!available || disabled) return;
     const controller = new AbortController();
     void check(null, TOKEN_LIMIT, null, controller.signal);
     return () => { ++requestSerial.current; controller.abort(); };
-  }, [check, disabled, batch.input_recovery_available]);
-  if (!batch.input_recovery_available) return null;
+  }, [check, disabled, available]);
+  if (!available) return null;
   const completeLimits = preview?.all_roles === true && preview.output_limit === output;
   return <section className="generation-panel input-recovery" aria-label="剩余输入与费用"><h3>确认输入与全部角色输出额度并继续创作</h3>
     <p>按二十万输入及全部角色十万输出核算剩余费用。确认后应用于尚未执行的步骤，已完成的方案、正文和调用保留。</p>

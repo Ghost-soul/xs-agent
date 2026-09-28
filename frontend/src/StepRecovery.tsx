@@ -8,6 +8,7 @@ type Preview = {
   unknown_cost_reserve_cny: string; retry_cost_upper_cny: string;
   remaining_cost_upper_cny: string; total_cost_upper_cny: string; max_cost_cny: string;
   requires_uncertain_confirmation: boolean; partial_response_characters: number;
+  failure_diagnostic?: { code: string; message: string } | null;
   blockers: string[];
 };
 
@@ -67,12 +68,14 @@ export function StepRecovery({ batch, base, disabled, onContinued }: {
   if (!available) return null;
   return <section className="generation-panel" aria-label="从失败步骤恢复">
     <h3>从失败步骤恢复</h3>
+    <p>当前已暂停，没有自动重试。下方预览只核对恢复位置和费用，不发送模型请求。</p>
     <p>保留已完成的方案、正文和事实接力。确认后重做失败步骤，再接续本次授权范围内的剩余流程；再次失败仍暂停。</p>
     {budget !== null && <label>恢复后的总费用上限（元）<input type="number" min={0} max={10000} step="0.01" value={budget} disabled={disabled || busy}
       onChange={(e) => { setBudget(e.target.value); setPreview(null); setConfirmed(false); setUncertain(false); }} /></label>}
     <button disabled={disabled || busy} onClick={() => void check(budget)}>{busy ? "正在核算…" : "预览恢复位置与费用（不调用模型）"}</button>
     {preview && <>
       <p>恢复位置：{actionName(preview.action)}；模型 {preview.model}。</p>
+      {preview.failure_diagnostic && !preview.blockers.includes(preview.failure_diagnostic.message) && <p role="status">{preview.failure_diagnostic.message}</p>}
       {preview.partial_response_characters > 0 && <p>原响应保留在调用详情。若失败步骤为 Writer，将重新生成该未完成单元，旧片段留在历史记录中，已完成正文保持。</p>}
       <p>已记录 ¥{preview.known_cost_cny}；原调用未知费用预留 ¥{preview.unknown_cost_reserve_cny}；本次额外调用最多 ¥{preview.retry_cost_upper_cny}。</p>
       <p>重做与剩余步骤最多 ¥{preview.remaining_cost_upper_cny}；包含已记录费用和未知费用预留的总上界 ¥{preview.total_cost_upper_cny}；待确认总预算 ¥{preview.max_cost_cny}。</p>

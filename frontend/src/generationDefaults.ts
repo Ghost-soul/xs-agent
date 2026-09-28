@@ -1,24 +1,27 @@
 import type { GenerationDetail, GenerationSpec, ProviderProfile } from "./api";
 import { INPUT_TOKEN_LIMIT, TOKEN_LIMIT } from "./generationTokenLimits";
 import { isGenreCard, type CreativeCardOption } from "./CreativeCards";
+import { fitOutputCapacities } from "./generationCapacity";
 type SavedOrDraftSpec = GenerationDetail["spec"] | GenerationSpec;
+export const defaultStageScale = { scale_mode: "stage-range" as const, min_characters: 15000, max_characters: 20000, preferred_units: 5 };
 export const inputDefaultsRevision = "input-200k-v2";
 export const outputDefaultsRevision = "output-100k-v2";
 export const feedbackDefaultsRevision = "logic-v1";
 export type NarrativeSelectionMode = "random" | "manual";
-export type GenerationFormDraft = GenerationSpec & { input_defaults_revision?: string; output_defaults_revision?: string; feedback_defaults_revision?: string; narrative_selection_mode?: NarrativeSelectionMode };
+export type GenerationFormDraft = GenerationSpec & { format_trial?: boolean; craft_defaults_revision?: string; input_defaults_revision?: string; output_defaults_revision?: string; feedback_defaults_revision?: string; narrative_selection_mode?: NarrativeSelectionMode };
 
 export function initialNarrativeSelectionMode(draft?: GenerationFormDraft): NarrativeSelectionMode {
   return draft?.narrative_selection_mode === "manual" ? "manual" : "random";
 }
 
-export function generationFormDraft(spec: GenerationSpec, mode: NarrativeSelectionMode = "random"): GenerationFormDraft {
-  return { ...spec, input_defaults_revision: inputDefaultsRevision, output_defaults_revision: outputDefaultsRevision, feedback_defaults_revision: feedbackDefaultsRevision, narrative_selection_mode: mode };
+export function generationFormDraft(spec: GenerationSpec, mode: NarrativeSelectionMode = "random", formatTrial = false): GenerationFormDraft {
+  return { ...spec, format_trial: formatTrial, craft_defaults_revision: "stage-craft-v1", input_defaults_revision: inputDefaultsRevision, output_defaults_revision: outputDefaultsRevision, feedback_defaults_revision: feedbackDefaultsRevision, narrative_selection_mode: mode };
 }
 
 export type GenerationSetup = {
   available_cards?: CreativeCardOption[];
   configuration_revision?: string;
+  craft_revision?: string;
   context_budget_revision?: string;
   output_budget_revision?: string;
   automation_revision?: string;
@@ -53,7 +56,7 @@ export function initialGenerationSpec(setup: GenerationSetup, profiles: Provider
   const available = eligibleProfiles(profiles);
   const profile = available.find((p) => p.id === inherited?.profile_id) ?? available[0];
   const initial: GenerationSpec = {
-    workflow: "novel-run-v1", context_policy: "chief-focus-v4", automation_policy: "stage-auto-v1", stage_mode: "longform-v1", unit_limit: 3, character_selection: "chief-auto-v1",
+    workflow: "novel-run-v1", context_policy: "chief-focus-v4", automation_policy: "stage-auto-v1", stage_mode: "longform-v1", unit_limit: 5, craft_policy: "stage-craft-v1", stage_scale: { ...defaultStageScale }, character_selection: "chief-auto-v1",
     enable_editor: false, generate_title: false, base_version_id: setup.base_version_id,
     feedback_policy: "logic-v1", writing_policy: "guided-v1", enable_checker: true, enable_reader: false,
     focus_card_id: setup.style.genre_card_id ?? "", supporting_card_id: null,
@@ -66,7 +69,7 @@ export function initialGenerationSpec(setup: GenerationSetup, profiles: Provider
     timeout_seconds: inherited?.timeout_seconds ?? 600, pause_after_plan: false,
   };
   // Reuse resource choices, not an earlier chapter's plot, pair or pinned cast.
-  const { input_defaults_revision, output_defaults_revision, feedback_defaults_revision, narrative_selection_mode, ...draftSpec } = draft ?? {};
+  const { format_trial, input_defaults_revision, output_defaults_revision, feedback_defaults_revision, narrative_selection_mode, craft_defaults_revision, ...draftSpec } = draft ?? {};
   const result = { ...initial, ...draftSpec, ...profileDefaults(profile, inherited), workflow: "novel-run-v1" as const, base_version_id: setup.base_version_id };
   // Migrate old form defaults once; later explicit edits survive browser reloads.
   result.input_limit = input_defaults_revision === inputDefaultsRevision ? draft!.input_limit ?? INPUT_TOKEN_LIMIT : INPUT_TOKEN_LIMIT;
@@ -119,9 +122,15 @@ export function initialGenerationSpec(setup: GenerationSetup, profiles: Provider
     ? [...new Set(draft?.narrative_card_ids ?? [])].filter((id) => cards.some((card) => card.id === id && card.layer === "narrative"))
     : [];
   result.card_selection_policy = "separate-v1";
-  return result;
+  result.craft_policy = "stage-craft-v1";
+  // An old saved number may be explicit. Preserve it; recommend five visibly.
+  if (craft_defaults_revision !== "stage-craft-v1" || !result.stage_scale) {
+    result.stage_scale = { ...defaultStageScale, preferred_units: Math.min(5, result.unit_limit ?? 5), scale_mode: result.stage_mode === "single-unit-v1" ? "natural" : "stage-range" };
+  }
+  // Fresh defaults fit the endpoint. Explicit saved drafts remain visible and editable.
+  return draft ? result : { ...result, ...fitOutputCapacities(result, profile) };
 }
 
 export function previewSpec(spec: GenerationSpec): GenerationSpec {
-  return { ...spec, enable_reader: false, milestone_unit: null, feedback_policy: "logic-v1", length_policy: "unit-v1", chapter_count: null, target_characters: null, plan_policy: "bounded-v1", card_selection_policy: "separate-v1", narrative_card_ids: spec.narrative_card_ids ?? [], narrative_policy: "plot-led-v3", writing_policy: "guided-v1", automation_policy: "stage-auto-v1", context_policy: "chief-focus-v4", direction: spec.direction.trim() || defaultDirection, relationship_scope: "genre-led", relationship_character_ids: [] };
+  return { ...spec, craft_policy: "stage-craft-v1", stage_scale: spec.stage_scale ?? { ...defaultStageScale, preferred_units: Math.min(5, spec.unit_limit ?? 5), scale_mode: spec.stage_mode === "single-unit-v1" ? "natural" : "stage-range" }, enable_reader: false, milestone_unit: null, feedback_policy: "logic-v1", length_policy: "unit-v1", chapter_count: null, target_characters: null, plan_policy: "bounded-v1", card_selection_policy: "separate-v1", narrative_card_ids: spec.narrative_card_ids ?? [], narrative_policy: "plot-led-v3", writing_policy: "guided-v1", automation_policy: "stage-auto-v1", context_policy: "chief-focus-v4", direction: spec.direction.trim() || defaultDirection, relationship_scope: "genre-led", relationship_character_ids: [] };
 }

@@ -66,3 +66,25 @@ it("resumes a previously authorized recovery paused before dispatch", async () =
   await waitFor(() => expect(props.onContinued).toHaveBeenCalledOnce());
   expect(mocks.write.mock.calls[0][0]).toBe("/batches/batch/authorize");
 });
+
+it.each([
+  ["provider_refusal", "模型返回了拒绝说明，请查看原响应并调整请求。"],
+  ["plan_question_format_invalid", "三个作者问题只有一份总原因，无法自动对应。"],
+])("shows %s without offering a paid retry", async (code, message) => {
+  mocks.api.mockResolvedValue({ ...preview, blockers: [message], failure_diagnostic: { code, message } });
+  render(<StepRecovery {...props} />);
+  expect(await screen.findByRole("alert")).toHaveTextContent(message);
+  expect(screen.getAllByText(message)).toHaveLength(1);
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(screen.queryByText("确认从失败步骤恢复")).toBeNull();
+  expect(mocks.write).not.toHaveBeenCalled();
+});
+
+it("explains an incomplete response while retaining explicit uncertain-cost confirmation", async () => {
+  mocks.api.mockResolvedValue({ ...preview, failure_diagnostic: { code: "outcome_uncertain", message: "响应未确认完整结束，可能重复计费。" } });
+  render(<StepRecovery {...props} />);
+  expect(await screen.findByRole("status")).toHaveTextContent("响应未确认完整结束");
+  expect(screen.getByText("确认从失败步骤恢复")).toBeDisabled();
+  expect(screen.getByLabelText(/我已核查原调用/)).not.toBeChecked();
+  expect(mocks.write).not.toHaveBeenCalled();
+});

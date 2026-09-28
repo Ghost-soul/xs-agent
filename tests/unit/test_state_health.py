@@ -8,7 +8,7 @@ def test_state_health_detects_and_safely_normalizes_empty_array_stringification(
     state = {
         "characters": [
             {
-                "name": "凌风",
+                "name": "测试角色甲",
                 "forbidden_behaviors": "System.Object[]",
                 "mind_state": {"beliefs": "System.Object[]"},
             }
@@ -29,7 +29,7 @@ def test_state_health_detects_and_safely_normalizes_empty_array_stringification(
 def test_state_health_refuses_lossy_powershell_object_reconstruction() -> None:
     state = {
         "characters": [
-            {"name": "凌风", "mind_state": "@{beliefs=System.Object[]}"}
+            {"name": "测试角色甲", "mind_state": "@{beliefs=System.Object[]}"}
         ]
     }
 

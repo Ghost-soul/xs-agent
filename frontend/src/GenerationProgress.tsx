@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { GenerationDetail } from "./api";
+import { StageScaleProgress } from "./StageScale";
 
 export function plannedUnitCount(batch: GenerationDetail): number {
   const plan = batch.artifacts.find((a) => a.id === batch.state.plan_id)?.payload as { scenes?: unknown[] } | undefined;
@@ -56,22 +57,24 @@ export function GenerationProgress({ batch, compact = false }: { batch: Generati
     return () => window.clearInterval(timer);
   }, [executing?.id]);
   const find = (kind: string) => batch.artifacts.find((a) => a.id === batch.state[`${kind}_id`]) as { payload: Record<string, unknown> } | undefined;
-  const units = (find("units")?.payload.items ?? []) as { memory_id?: string; complete?: boolean }[];
+  const trial = !!batch.snapshot.format_trial_contract;
+  const units = (find("units")?.payload.items ?? []) as { memory_id?: string; note_id?: string; complete?: boolean }[];
   const candidate = find("candidate");
   const written = batch.spec.stage_mode === "longform-v1" ? units.filter((u) => u.complete !== false).length : Number(!!candidate && candidate.payload.complete !== false);
-  const handoffs = batch.spec.stage_mode === "longform-v1" ? units.filter((u) => u.memory_id).length : Number(!!find("memory"));
+  const handoffs = batch.spec.stage_mode === "longform-v1" ? units.filter((u) => trial ? u.note_id : u.memory_id).length : Number(!!find("memory"));
   const blockers = (batch.snapshot.blockers ?? []) as string[];
+  const name = (action: unknown) => trial && String(action).startsWith("memory") ? actionName(action).replace("提取", "记录").replace("事实", "未校验笔记") : actionName(action);
   let headline: string;
-  if (executing) headline = `正在进行：${actionName(executing.action)}`;
+  if (executing) headline = `正在进行：${name(executing.action)}`;
   else if (batch.status === "draft") headline = blockers.length ? "尚未开始：本地预检未通过" : "尚未开始：等待费用确认与授权";
-  else if (batch.status === "queued" || batch.status === "running") headline = `准备进行：${actionName(batch.next_action)}`;
-  else if (batch.status === "outcome_uncertain") headline = `结果待核对：${actionName(failed?.action ?? batch.next_action)}`;
+  else if (batch.status === "queued" || batch.status === "running") headline = `准备进行：${name(batch.next_action)}`;
+  else if (batch.status === "outcome_uncertain") headline = `结果待核对：${name(failed?.action ?? batch.next_action)}`;
   else if (batch.status === "adopted") headline = "本阶段已正式采用";
   else if (failed && ["advisory-v1", "logic-v1"].includes(batch.spec.feedback_policy ?? "") && /^(checker|reader)/.test(String(failed.action))) headline = "正文已保存：可选反馈未完成";
   else if (failed) headline = `已暂停：${actionName(failed.action)}`;
   else if (batch.status === "needs_attention" && batch.input_recovery_available) headline = "等待确认新的输入额度与费用";
   else if (batch.status === "awaiting_plan") headline = "等待作者确认或调整故事方案";
-  else if (batch.status === "paused") headline = `已暂停；下一步：${actionName(batch.next_action)}`;
+  else if (batch.status === "paused") headline = `已暂停；下一步：${name(batch.next_action)}`;
   else if (batch.status === "archived") headline = "历史记录";
   else if (find("candidate") && ["advisory-v1", "logic-v1"].includes(batch.spec.feedback_policy ?? "")) headline = "等待作者读稿：正文已保存";
   else if (find("candidate") && find("review")) headline = "等待作者审核：正文与反馈已保存";
@@ -79,14 +82,15 @@ export function GenerationProgress({ batch, compact = false }: { batch: Generati
   const knownCost = calls.reduce((sum, c) => sum + (c.actual_cost_cny == null ? 0 : Number(c.actual_cost_cny)), 0);
   const unknownCost = calls.some((c) => c.actual_cost_cny == null);
   const seconds = executing ? Math.max(0, Math.floor((now - Date.parse(String(executing.started_at))) / 1000)) : 0;
-  const transport = batch.state.transport as { call_id?: string; received_bytes?: number; last_received_at?: string } | undefined;
+  const transport = batch.state.transport as { call_id?: string; received_bytes?: number; last_received_at?: string; headers_received_at?: string; first_received_at?: string } | undefined;
   return <section className="generation-progress" aria-label="当前创作进度">
     <h3 aria-live="polite">{headline}</h3>
-    <p>剧情方案：{find("plan") ? "已保存" : "未完成"}；已写 {written} / {plannedUnitCount(batch)} 个完整单元{plannedUnitCount(batch) !== (batch.spec.unit_limit ?? 1) && `（授权上限 ${batch.spec.unit_limit}）`}；事实接力 {handoffs} 个。</p>
+    <StageScaleProgress batch={batch} />
+    <p>剧情方案：{find("plan") ? "已保存" : "未完成"}；已写 {written} / {plannedUnitCount(batch)} 个完整单元{plannedUnitCount(batch) !== (batch.spec.unit_limit ?? 1) && `（授权上限 ${batch.spec.unit_limit}）`}；{trial ? "未校验连续性笔记" : "事实接力"} {handoffs} 个。</p>
     {units.some((u) => u.complete === false) && <p>另有未完成单元，其可见正文已保留。</p>}
-    {!compact && <p>Reader 反馈：{find("review") ? "已保存，供参考" : ["advisory-v1", "logic-v1"].includes(batch.spec.feedback_policy ?? "") && !batch.spec.enable_reader ? "未开启，不影响读稿采用" : "尚未完成"}；章节划分：{find("segments") ? "已有当前分段" : "尚未生成"}；正式采用：{batch.status === "adopted" ? "已完成" : "未发生"}。</p>}
+    {!compact && !trial && <p>Reader 反馈：{find("review") ? "已保存，供参考" : ["advisory-v1", "logic-v1"].includes(batch.spec.feedback_policy ?? "") && !batch.spec.enable_reader ? "未开启，不影响读稿采用" : "尚未完成"}；章节划分：{find("segments") ? "已有当前分段" : "尚未生成"}；正式采用：{batch.status === "adopted" ? "已完成" : "未发生"}。</p>}
     <p>已发起 {calls.length} 次调用，已记录费用 ¥{knownCost.toFixed(4)}{unknownCost ? "（另有调用费用待确认）" : ""}。</p>
-    {executing && <p>本次已等待 {Number.isFinite(seconds) ? seconds : 0} 秒。{transport && transport.call_id === executing.id && transport.last_received_at ? `最近收到数据：${new Date(transport.last_received_at).toLocaleTimeString()}，累计 ${transport.received_bytes ?? 0} 字节。` : "尚无可用的接收进度。"}接收数据不代表该步骤已完成。</p>}
+    {executing && <p>本次已等待 {Number.isFinite(seconds) ? seconds : 0} 秒。{transport && transport.call_id === executing.id && transport.last_received_at ? `最近收到数据：${new Date(transport.last_received_at).toLocaleTimeString()}，累计 ${transport.received_bytes ?? 0} 字节。` : transport && transport.call_id === executing.id && transport.headers_received_at ? "已收到响应头，正在等待首段内容。" : "正在等待供应商响应。"}接收数据不代表该步骤已完成。</p>}
     {diagnostic ? <p role="alert">{diagnostic.message}</p> : typeof batch.state.message === "string" && (batch.status === "needs_attention" && batch.input_recovery_available ? <details><summary>上次暂停原因（原额度）</summary><p>{batch.state.message}</p></details> : <p>{batch.state.message}</p>)}
     {!compact && !!calls.length && <details><summary>查看已执行步骤</summary><ol>{calls.map((c) => <li key={String(c.id)}>{actionName(c.action)} · {callLabels[String(c.status)] ?? String(c.status)}</li>)}</ol></details>}
   </section>;

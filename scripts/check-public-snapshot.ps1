@@ -9,7 +9,7 @@ if (-not (Get-Command "git" -ErrorAction SilentlyContinue)) {
     throw "git is required."
 }
 
-$TrackedFiles = @(git ls-files)
+$TrackedFiles = @(git -c core.quotepath=false ls-files)
 if ($LASTEXITCODE -ne 0) { throw "Could not list tracked files." }
 
 $ForbiddenPaths = @(
@@ -20,6 +20,7 @@ $ForbiddenPaths = @(
     "docs/CURRENT_STATE.md",
     "docs/history/",
     "docs/reports/",
+    ".runtime/",
     "data/",
     "logs/",
     "backups/",

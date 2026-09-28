@@ -4,21 +4,21 @@ from decimal import Decimal
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from novel_writer.api.dependencies import IdempotencyKey, Session
 from novel_writer.api.schemas.generation_creation import NewAmendmentRequest, NewGenerationRequest
 from novel_writer.db.models import GenerationBatchRecord, GenerationCallRecord
+from novel_writer.generation.chapter_arrangement import ChapterArrangement
+from novel_writer.generation.configurable_cast import CreativePlanEdit as PlanEdit
+from novel_writer.generation.craft_models import CraftAuthorization, CraftContinuation, CraftSpec
 from novel_writer.generation.schemas import (
     AdoptRequest,
     AmendmentAuthorization,
-    AuthorizeRequest,
     CandidateEdit,
-    ContinueStageRequest,
     FrozenGenerationSpec,
-    PlanEdit,
     ResolveUnknown,
     StageAdoptRequest,
 )
@@ -27,7 +27,43 @@ from novel_writer.generation.token_limits import INPUT_TOKEN_LIMIT, TOKEN_LIMIT
 from novel_writer.services.errors import ConflictError, WorkflowError
 from novel_writer.services.style_profiles import StyleProfileService
 
-router = APIRouter(prefix="/api/projects/{project_id}/generation-batches", tags=["generation"])
+
+async def trial_boundary(project_id: UUID, request: Request, session: Session) -> None:
+    """Keep all fact/edit workflows out of the unchecked experiment, including API clients."""
+    batch_id = request.path_params.get("batch_id")
+    if batch_id is None:
+        return
+    suffix = request.url.path.rsplit("/", 1)[-1]
+    if request.method in {"GET", "HEAD"} and suffix not in {
+        "stage-chapters", "memory-recovery-preview",
+    }:
+        return
+    if suffix in {
+        "authorize", "pause", "input-authorize", "step-recovery-authorize",
+        "resolve-unknown", "revalidate",
+    }:
+        return
+    from novel_writer.generation.format_trial import require_standard
+
+    batch = await GenerationService(session, request.app.state.provider_profile_store).batch(
+        project_id, UUID(str(batch_id)),
+    )
+    require_standard(batch.snapshot)
+
+
+router = APIRouter(
+    prefix="/api/projects/{project_id}/generation-batches", tags=["generation"],
+    dependencies=[Depends(trial_boundary)],
+)
+
+
+class DispatchBlocker(BaseModel):
+    call_id: str
+    batch_id: str
+    action: str
+    status: Literal["executing", "outcome_uncertain"]
+    model: str
+    started_at: str
 
 
 class GenerationDetail(BaseModel):
@@ -35,13 +71,14 @@ class GenerationDetail(BaseModel):
     project_id: str
     status: str
     revision: str
-    spec: FrozenGenerationSpec
+    spec: FrozenGenerationSpec | CraftSpec
     snapshot: dict[str, Any]
     preview_sha256: str
     next_action: str | None
     state: dict[str, Any]
     artifacts: list[dict[str, Any]]
     calls: list[dict[str, Any]]
+    dispatch_blockers: list[DispatchBlocker] = Field(default_factory=list)
     passages: list[dict[str, Any]] = Field(default_factory=list)
     plan_retry_preview: dict[str, Any] | None = None
     input_recovery_available: bool = False
@@ -132,8 +169,11 @@ async def create_batch(
     request: Request,
     session: Session,
     idempotency_key: IdempotencyKey,
+    replace_previous: bool = True,
 ) -> dict[str, Any]:
-    return await service(request, session).create(project_id, payload, idempotency_key)
+    return await service(request, session).create(
+        project_id, payload, idempotency_key, replace_previous=replace_previous,
+    )
 
 
 @router.post("/random-preview", response_model=GenerationDetail)
@@ -143,9 +183,28 @@ async def create_random_preview(
     request: Request,
     session: Session,
     idempotency_key: IdempotencyKey,
+    replace_previous: bool = True,
 ) -> dict[str, Any]:
     return await service(request, session).create(
-        project_id, payload, idempotency_key, random_narratives=True
+        project_id, payload, idempotency_key, random_narratives=True,
+        replace_previous=replace_previous,
+    )
+
+
+@router.post("/trial-preview", response_model=GenerationDetail)
+async def create_trial_preview(
+    project_id: UUID,
+    payload: NewGenerationRequest,
+    request: Request,
+    session: Session,
+    idempotency_key: IdempotencyKey,
+    replace_previous: bool = True,
+    random_narratives: bool = True,
+) -> dict[str, Any]:
+    return await service(request, session).create(
+        project_id, payload, idempotency_key,
+        random_narratives=random_narratives, format_trial=True,
+        replace_previous=replace_previous,
     )
 
 
@@ -159,6 +218,7 @@ async def setup(project_id: UUID, request: Request, session: Session) -> dict[st
     style = await StyleProfileService(session).get(project_id)
     return {
         "configuration_revision": "author-intent-v1",
+        "craft_revision": "stage-craft-v1",
         "context_budget_revision": "chief-focus-v4",
         "narrative_revision": "plot-led-v3",
         "output_budget_revision": "chief-output-v1",
@@ -191,13 +251,18 @@ async def batch_detail(
 async def authorize(
     project_id: UUID,
     batch_id: UUID,
-    payload: AuthorizeRequest,
+    payload: CraftAuthorization,
     request: Request,
     session: Session,
     idempotency_key: IdempotencyKey,
 ) -> dict[str, Any]:
     result = await service(request, session).authorize(
-        project_id, batch_id, payload.preview_sha256, idempotency_key
+        project_id,
+        batch_id,
+        payload.preview_sha256,
+        idempotency_key,
+        expected_plan=payload.expected_plan_sha256,
+        expected_adjustment=payload.expected_adjustment_sha256,
     )
     await session.commit()
     request.app.state.generation.start(batch_id)
@@ -221,7 +286,7 @@ async def pause(
 async def continue_stage_run(
     project_id: UUID,
     batch_id: UUID,
-    payload: ContinueStageRequest,
+    payload: CraftContinuation,
     request: Request,
     session: Session,
     idempotency_key: IdempotencyKey,
@@ -620,3 +685,39 @@ async def stage_adopt(
     from novel_writer.generation.stage_adoption import adopt
 
     return await adopt(service(request, session), project_id, batch_id, payload, idempotency_key)
+
+
+@router.post("/{batch_id}/chapter-arrangement-preview")
+async def chapter_arrangement_preview(
+    project_id: UUID,
+    batch_id: UUID,
+    payload: ChapterArrangement,
+    request: Request,
+    session: Session,
+) -> dict[str, Any]:
+    from novel_writer.generation.chapter_arrangement import preview
+
+    current = service(request, session)
+    return await preview(current, await current.batch(project_id, batch_id), payload)
+
+
+@router.post("/{batch_id}/chapter-arrangement", response_model=GenerationDetail)
+async def chapter_arrangement_apply(
+    project_id: UUID,
+    batch_id: UUID,
+    payload: ChapterArrangement,
+    request: Request,
+    session: Session,
+    idempotency_key: IdempotencyKey,
+) -> dict[str, Any]:
+    from novel_writer.generation.chapter_arrangement import apply
+
+    current = service(request, session)
+    command = f"generation_arrangement:{batch_id}"
+    data = payload.model_dump(mode="json")
+    cached = await current._idempotent(command, idempotency_key, data)
+    if cached is not None:
+        return cached
+    result = await apply(current, await current.batch(project_id, batch_id, lock=True), payload)
+    await current._save_idempotent(command, idempotency_key, result, data)
+    return result

@@ -5,10 +5,26 @@ import { InputRecovery } from "./InputRecovery";
 
 const mocks = vi.hoisted(() => ({ api: vi.fn(), write: vi.fn() }));
 vi.mock("./api", async (original) => ({ ...await original<typeof import("./api")>(), api: mocks.api, StableWriteOperationKeys: class { request = mocks.write; } }));
-const batch = { id: "batch", input_recovery_available: true, state: { plan_id: "plan", questions_id: "q" } } as unknown as GenerationDetail;
+const batch = { id: "batch", status: "awaiting_plan", input_recovery_available: true, state: { plan_id: "plan", questions_id: "q" } } as unknown as GenerationDetail;
 const preview = { preview_sha256: "preview", all_roles: true, output_limit: 100000, previous_input_limit: 58000, input_limit: 100000, writer_input_tokens: 63120, spent_cost_cny: "0.48", remaining_cost_upper_cny: "4", total_cost_upper_cny: "4.48", max_cost_cny: "10", blockers: [] };
 afterEach(cleanup);
 beforeEach(() => { vi.clearAllMocks(); mocks.api.mockResolvedValue(preview); mocks.write.mockResolvedValue({ ...batch, status: "queued" }); });
+
+it.each(["queued", "running", "outcome_uncertain", "archived", "adopted"])("ignores stale availability after status becomes %s", async (status) => {
+  let rejectOld!: (error: Error) => void;
+  mocks.api.mockImplementationOnce(() => new Promise((_, reject) => { rejectOld = reject; }));
+  const props = { batch, base: "/batches", disabled: false, onContinued: vi.fn() };
+  const view = render(<InputRecovery {...props} />);
+  expect(mocks.api).toHaveBeenCalledOnce();
+  const signal = mocks.api.mock.calls[0][1].signal as AbortSignal;
+  view.rerender(<InputRecovery {...props} batch={{ ...batch, status }} />);
+  expect(signal.aborted).toBe(true);
+  await act(async () => rejectOld(new Error("仅暂停阶段可调整")));
+  expect(screen.queryByRole("region")).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(mocks.api).toHaveBeenCalledOnce();
+  expect(mocks.write).not.toHaveBeenCalled();
+});
 
 it("automatically previews saved-plan input but requires explicit fee confirmation to continue", async () => {
   const continued = vi.fn();
